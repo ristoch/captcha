@@ -285,8 +285,8 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 					"success":    false,
 					"blocked":    false,
 					"new_challenge": map[string]interface{}{
-						"challenge_id": newChallenge.ID,
-						"html":         newChallenge.HTML,
+						entity.FieldChallengeID: newChallenge.ID,
+						"html":                  newChallenge.HTML,
 					},
 				},
 			}

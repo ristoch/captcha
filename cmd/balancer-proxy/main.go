@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
-	"captcha-service/internal/infrastructure/config"
 	httpDelivery "captcha-service/internal/transport/http"
 )
 
 func main() {
-	cfg, err := config.Load()
+	cfg, err := config.LoadBalancerProxyConfig()
 	if err != nil {
 		log.Fatalf("Failed to load balancer-proxy config: %v", err)
 	}

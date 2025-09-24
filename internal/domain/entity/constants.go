@@ -97,6 +97,29 @@ const (
 	ChallengeTypeDragDrop     = "drag-drop"
 )
 
+// JSON field names
+const (
+	FieldChallengeID   = "challenge_id"
+	FieldUserID        = "user_id"
+	FieldSessionID     = "session_id"
+	FieldEventType     = "event_type"
+	FieldComplexity    = "complexity"
+	FieldChallengeType = "challenge_type"
+	FieldAnswer        = "answer"
+)
+
+// Event types
+const (
+	EventTypeCaptchaSolved   = "captchaSolved"
+	EventTypeCaptchaSendData = "captcha:sendData"
+)
+
+// Challenge types for registration
+const (
+	ChallengeTypeSliderPuzzleReg = "slider-puzzle"
+	ChallengeTypeDragDropReg     = "drag-drop"
+)
+
 const (
 	CanvasWidth          = 400
 	CanvasHeight         = 300

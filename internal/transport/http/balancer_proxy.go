@@ -326,8 +326,8 @@ func (bp *BalancerProxy) WebSocketHandler(w http.ResponseWriter, r *http.Request
 				Type:   "challenge_created",
 				UserID: msg.UserID,
 				Data: map[string]interface{}{
-					"challenge_id": challengeID,
-					"html":         "<div>Mock challenge HTML</div>",
+					entity.FieldChallengeID: challengeID,
+					"html":                  "<div>Mock challenge HTML</div>",
 				},
 			}
 
@@ -591,8 +591,8 @@ func (bp *BalancerProxy) ChallengeHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	response := map[string]interface{}{
-		"challenge_id": resp.ChallengeId,
-		"html":         resp.Html,
+		entity.FieldChallengeID: resp.ChallengeId,
+		"html":                  resp.Html,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -606,7 +606,7 @@ func (bp *BalancerProxy) ValidateChallengeHandler(w http.ResponseWriter, r *http
 	}
 
 	var req struct {
-		ChallengeID string      `json:"challenge_id"`
+		ChallengeID string      `json:entity.FieldChallengeID`
 		Answer      interface{} `json:"answer"`
 	}
 

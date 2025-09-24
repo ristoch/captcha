@@ -27,7 +27,7 @@ func NewHandlers(captchaService *service.CaptchaService) *Handlers {
 }
 
 func (h *Handlers) NewChallenge(ctx context.Context, req *captchav1.ChallengeRequest) (*captchav1.ChallengeResponse, error) {
-	challenge, err := h.captchaService.CreateChallenge(ctx, "slider-puzzle", req.Complexity, req.UserId)
+	challenge, err := h.captchaService.CreateChallenge(ctx, entity.ChallengeTypeSliderPuzzle, req.Complexity, req.UserId)
 	if err != nil {
 		logger.Error("Failed to create challenge", zap.Error(err))
 		return nil, err

@@ -67,7 +67,7 @@ func (c *Client) sendReadyEvent() error {
 	req := &protoBalancer.RegisterInstanceRequest{
 		EventType:     protoBalancer.RegisterInstanceRequest_READY,
 		InstanceId:    c.instanceID,
-		ChallengeType: "slider-puzzle",
+		ChallengeType: entity.ChallengeTypeSliderPuzzleReg,
 		Host:          c.host,
 		PortNumber:    c.port,
 		Timestamp:     time.Now().Unix(),
@@ -80,7 +80,7 @@ func (c *Client) sendStoppedEvent() error {
 	req := &protoBalancer.RegisterInstanceRequest{
 		EventType:     protoBalancer.RegisterInstanceRequest_STOPPED,
 		InstanceId:    c.instanceID,
-		ChallengeType: "slider-puzzle",
+		ChallengeType: entity.ChallengeTypeSliderPuzzleReg,
 		Host:          c.host,
 		PortNumber:    c.port,
 		Timestamp:     time.Now().Unix(),

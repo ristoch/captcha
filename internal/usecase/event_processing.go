@@ -39,7 +39,7 @@ func NewEventProcessingUseCase(
 
 func (uc *EventProcessingUseCase) ProcessBinaryEvent(ctx context.Context, challengeID string, eventType entity.BinaryEventType, data []byte) (*entity.EventResult, error) {
 	logger.Debug("Processing binary event",
-		zap.String("challenge_id", challengeID),
+		zap.String(entity.FieldChallengeID, challengeID),
 		zap.Int("event_type", int(eventType)),
 		zap.Int("data_length", len(data)))
 
@@ -100,7 +100,7 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 		zap.String("user_id", eventData.UserID),
 		zap.String("type", eventData.Type))
 
-	challengeID, ok := eventData.Data["challenge_id"].(string)
+	challengeID, ok := eventData.Data[entity.FieldChallengeID].(string)
 	if !ok {
 		return entity.NewEventResult(false, "Challenge ID not found", nil), fmt.Errorf("challenge ID not found")
 	}
@@ -154,7 +154,7 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 }
 
 func (uc *EventProcessingUseCase) CreateEventStream(ctx context.Context, challengeID string) (interfaces.EventStream, error) {
-	logger.Debug("Creating event stream", zap.String("challenge_id", challengeID))
+	logger.Debug("Creating event stream", zap.String(entity.FieldChallengeID, challengeID))
 
 	_, err := uc.challengeRepo.GetChallenge(ctx, challengeID)
 	if err != nil {

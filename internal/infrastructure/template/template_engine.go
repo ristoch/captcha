@@ -110,7 +110,7 @@ func (tes *TemplateEngineService) RenderDemoPage(ctx context.Context, data *enti
 	templateData := map[string]interface{}{
 		"user_id":      data.UserID,
 		"session_id":   data.SessionID,
-		"challenge_id": data.ChallengeID,
+		entity.FieldChallengeID: data.ChallengeID,
 		"html":         data.HTML,
 	}
 

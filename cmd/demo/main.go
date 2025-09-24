@@ -10,8 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"captcha-service/internal/config"
+	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/infrastructure/cache"
-	"captcha-service/internal/infrastructure/config"
 	"captcha-service/internal/infrastructure/repository"
 	httpTransport "captcha-service/internal/transport/http"
 	wsTransport "captcha-service/internal/transport/websocket"
@@ -26,12 +27,16 @@ func main() {
 
 	sessionRepo := repository.NewInMemorySessionRepository()
 	_ = cache.NewSessionCache(5000) // 5k max sessions (for future use)
-	demoUsecase := usecase.NewDemoUsecase(sessionRepo, cfg)
+	entityConfig := &entity.DemoConfig{
+		MaxAttempts:   cfg.MaxAttempts,
+		BlockDuration: cfg.BlockDuration,
+	}
+	demoUsecase := usecase.NewDemoUsecase(sessionRepo, entityConfig)
 
 	tmpl := template.New("demo")
 
 	demoHandler := httpTransport.NewDemoHandler(demoUsecase, tmpl)
-	wsHandler := wsTransport.NewDemoWebSocketHandler(cfg, sessionRepo)
+	wsHandler := wsTransport.NewDemoWebSocketHandler(entityConfig, sessionRepo)
 
 	mux := http.NewServeMux()
 

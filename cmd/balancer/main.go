@@ -11,7 +11,8 @@ import (
 	"time"
 
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
-	"captcha-service/internal/infrastructure/config"
+	"captcha-service/internal/config"
+	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/infrastructure/persistence"
 	"captcha-service/internal/service"
 	"captcha-service/internal/transport/grpc/balancer"
@@ -22,7 +23,7 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load()
+	cfg, err := config.LoadBalancerConfig()
 	if err != nil {
 		log.Fatalf("Failed to load balancer config: %v", err)
 	}
@@ -39,7 +40,13 @@ func main() {
 	instanceRepo := persistence.NewMemoryInstanceRepository()
 	userBlockRepo := persistence.NewMemoryUserBlockRepository()
 
-	balancerService := service.NewBalancerService(instanceRepo, userBlockRepo, cfg)
+	entityConfig := &entity.Config{
+		MaxAttempts:      cfg.MaxAttempts,
+		BlockDurationMin: cfg.BlockDurationMin,
+		CleanupInterval:  cfg.CleanupInterval,
+		StaleThreshold:   cfg.StaleThreshold,
+	}
+	balancerService := service.NewBalancerService(instanceRepo, userBlockRepo, entityConfig)
 
 	balancerService.StartCleanup()
 

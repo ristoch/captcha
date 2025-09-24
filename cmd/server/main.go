@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/infrastructure/balancer"
-	"captcha-service/internal/infrastructure/config"
 	"captcha-service/internal/infrastructure/persistence"
 	"captcha-service/internal/infrastructure/port"
 	"captcha-service/internal/infrastructure/template"
@@ -25,7 +25,7 @@ import (
 const serviceName = "captcha-service"
 
 func main() {
-	cfg, err := config.Load()
+	cfg, err := config.LoadCaptchaServiceConfig()
 	if err != nil {
 		log.Fatalf("Failed to load captcha service config: %v", err)
 	}
@@ -39,13 +39,37 @@ func main() {
 
 	templateEngine := template.NewTemplateEngineService("./templates")
 
-	registry := service.NewGeneratorRegistry()
-	registry.Register("slider-puzzle", service.NewSliderPuzzleGenerator(cfg, repo, templateEngine))
-
 	entityConfig := &entity.Config{
-		MaxAttempts:      cfg.MaxAttempts,
-		BlockDurationMin: cfg.BlockDurationMin,
+		Host:                 cfg.Host,
+		Port:                 cfg.Port,
+		BalancerAddress:      cfg.BalancerAddress,
+		LogLevel:             cfg.LogLevel,
+		ChallengeType:        cfg.ChallengeType,
+		ComplexityLow:        cfg.ComplexityLow,
+		ComplexityMedium:     cfg.ComplexityMedium,
+		ComplexityHigh:       cfg.ComplexityHigh,
+		PuzzleSizeLow:        cfg.PuzzleSizeLow,
+		PuzzleSizeMedium:     cfg.PuzzleSizeMedium,
+		PuzzleSizeHigh:       cfg.PuzzleSizeHigh,
+		ToleranceLow:         cfg.ToleranceLow,
+		ToleranceMedium:      cfg.ToleranceMedium,
+		ToleranceHigh:        cfg.ToleranceHigh,
+		ExpirationTimeLow:    cfg.ExpirationTimeLow,
+		ExpirationTimeMedium: cfg.ExpirationTimeMedium,
+		ExpirationTimeHigh:   cfg.ExpirationTimeHigh,
+		MinTimeMs:            cfg.MinTimeMs,
+		MaxTimeMs:            cfg.MaxTimeMs,
+		MaxTimeoutAttempts:   cfg.MaxTimeoutAttempts,
+		MinOverlapPct:        cfg.MinOverlapPct,
+		CleanupInterval:      cfg.CleanupInterval,
+		StaleThreshold:       cfg.StaleThreshold,
+		MaxAttempts:          cfg.MaxAttempts,
+		BlockDurationMin:     cfg.BlockDurationMin,
 	}
+
+	registry := service.NewGeneratorRegistry()
+	registry.Register(entity.ChallengeTypeSliderPuzzle, service.NewSliderPuzzleGenerator(entityConfig, repo, templateEngine))
+
 	captchaService := service.NewCaptchaService(repo, registry, nil, entityConfig)
 
 	portFinder := port.NewPortFinder(8080, 8090)
@@ -56,7 +80,7 @@ func main() {
 
 	logger.Info("Found available port", zap.Int("port", availablePort))
 
-	balancerClient := balancer.NewClient(cfg)
+	balancerClient := balancer.NewClient(entityConfig)
 
 	ctx := context.Background()
 	if err := balancerClient.Connect(ctx); err != nil {

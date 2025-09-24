@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"time"
 
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/domain/interfaces"
@@ -64,18 +63,9 @@ func (s *CaptchaService) ValidateChallenge(ctx context.Context, challengeID stri
 		return false, 0, err
 	}
 
-	if challenge.Attempts >= challenge.MaxAttempts {
-		challenge.IsBlocked = true
-		challenge.BlockReason = "Max attempts exceeded"
-		blockDuration := time.Duration(challenge.MaxAttempts) * time.Minute
-		blockedUntil := time.Now().Add(blockDuration)
-		challenge.BlockedUntil = &blockedUntil
-
-		return false, 0, entity.ErrMaxAttemptsReached
-	}
-
-	if challenge.IsBlocked && challenge.BlockedUntil != nil && time.Now().Before(*challenge.BlockedUntil) {
-		return false, 0, entity.ErrChallengeBlocked
+	if s.globalBlocker.IsUserBlocked(challenge.UserID) {
+		logger.Warn("User is globally blocked, cannot validate challenge", zap.String("userID", challenge.UserID))
+		return false, 0, entity.ErrUserBlocked
 	}
 
 	generator, exists := s.registry.Get(challenge.Type)
@@ -130,7 +120,7 @@ func (s *CaptchaService) ProcessEvent(ctx context.Context, event *entity.WebSock
 }
 
 func (s *CaptchaService) handleChallengeRequest(ctx context.Context, event *entity.WebSocketMessage) error {
-	challenge, err := s.CreateChallenge(ctx, "slider-puzzle", 50, event.UserID)
+	challenge, err := s.CreateChallenge(ctx, entity.ChallengeTypeSliderPuzzle, 50, event.UserID)
 	if err != nil {
 		return err
 	}
@@ -139,8 +129,8 @@ func (s *CaptchaService) handleChallengeRequest(ctx context.Context, event *enti
 		Type:   entity.MessageTypeChallengeCreated,
 		UserID: event.UserID,
 		Data: map[string]interface{}{
-			"challenge_id": challenge.ID,
-			"html":         challenge.HTML,
+			entity.FieldChallengeID: challenge.ID,
+			"html":                  challenge.HTML,
 		},
 	}
 
@@ -155,7 +145,7 @@ func (s *CaptchaService) handleCaptchaEvent(ctx context.Context, event *entity.W
 }
 
 func (s *CaptchaService) handleChallengeCompleted(ctx context.Context, event *entity.WebSocketMessage) error {
-	challengeID, ok := event.Data["challenge_id"].(string)
+	challengeID, ok := event.Data[entity.FieldChallengeID].(string)
 	if !ok {
 		return entity.ErrChallengeNotFound
 	}
@@ -175,7 +165,7 @@ func (s *CaptchaService) handleChallengeCompleted(ctx context.Context, event *en
 	}
 
 	if !valid {
-		challenge, err := s.CreateChallenge(ctx, "slider-puzzle", 50, event.UserID)
+		challenge, err := s.CreateChallenge(ctx, entity.ChallengeTypeSliderPuzzle, 50, event.UserID)
 		if err != nil {
 			return err
 		}
@@ -184,8 +174,8 @@ func (s *CaptchaService) handleChallengeCompleted(ctx context.Context, event *en
 			Type:   entity.MessageTypeNewChallenge,
 			UserID: event.UserID,
 			Data: map[string]interface{}{
-				"challenge_id": challenge.ID,
-				"html":         challenge.HTML,
+				entity.FieldChallengeID: challenge.ID,
+				"html":                  challenge.HTML,
 			},
 		}
 

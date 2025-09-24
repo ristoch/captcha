@@ -26,7 +26,7 @@ func TestCaptchaServiceIntegration(t *testing.T) {
 		Env: map[string]string{
 			"MIN_PORT":             "38000",
 			"LOG_LEVEL":            "debug",
-			"CHALLENGE_TYPE":       "drag-drop",
+			"CHALLENGE_TYPE":       entity.ChallengeTypeDragDrop,
 			"MAX_ATTEMPTS":         "5",
 			"MIN_OVERLAP_PCT":      "80",
 			"MAX_TIMEOUT_ATTEMPTS": "3",
