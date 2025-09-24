@@ -46,20 +46,17 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.conn = conn
 	c.balancerClient = protoBalancer.NewBalancerServiceClient(conn)
 
-	// Создаем стрим для регистрации
 	stream, err := c.balancerClient.RegisterInstance(ctx)
 	if err != nil {
 		return err
 	}
 	c.stream = stream
 
-	// Отправляем READY событие
 	err = c.sendReadyEvent()
 	if err != nil {
 		return err
 	}
 
-	// Запускаем горутину для периодической отправки READY
 	go c.keepAlive(ctx)
 
 	log.Printf("Successfully connected to balancer")

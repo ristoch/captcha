@@ -9,11 +9,11 @@ import (
 )
 
 type EventProcessorService struct {
-	repository     repository.CaptchaRepository
+	repository     repository.CaptchaPort
 	eventPublisher *EventPublisherService
 }
 
-func NewEventProcessorService(repo repository.CaptchaRepository, eventPublisher *EventPublisherService) *EventProcessorService {
+func NewEventProcessorService(repo repository.CaptchaPort, eventPublisher *EventPublisherService) *EventProcessorService {
 	return &EventProcessorService{
 		repository:     repo,
 		eventPublisher: eventPublisher,

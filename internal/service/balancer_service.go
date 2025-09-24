@@ -134,13 +134,10 @@ func (s *BalancerService) StartCleanup() {
 	ticker := time.NewTicker(time.Duration(s.config.CleanupInterval) * time.Second)
 	go func() {
 		for range ticker.C {
-			// Cleanup is handled by individual repositories
 			s.userBlockRepo.CleanupExpiredBlocks()
 		}
 	}()
 }
 
 func (s *BalancerService) Stop() {
-	// Stop cleanup and other background tasks
-	// Implementation depends on specific requirements
 }

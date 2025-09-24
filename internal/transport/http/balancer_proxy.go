@@ -306,7 +306,6 @@ func (bp *BalancerProxy) WebSocketHandler(w http.ResponseWriter, r *http.Request
 
 		switch msg.Type {
 		case "challenge_request":
-			// Check if user is blocked before creating challenge
 			if isBlocked, blockDuration := bp.isUserBlockedInSession(msg.UserID); isBlocked {
 				log.Printf("User %s is blocked, cannot create challenge via WebSocket", msg.UserID)
 				blockedResponse := entity.WebSocketMessage{
@@ -322,7 +321,6 @@ func (bp *BalancerProxy) WebSocketHandler(w http.ResponseWriter, r *http.Request
 				continue
 			}
 
-			// Create a mock challenge response
 			challengeID := fmt.Sprintf("challenge_%d", time.Now().UnixNano())
 			responseChan <- entity.WebSocketMessage{
 				Type:   "challenge_created",
@@ -334,7 +332,6 @@ func (bp *BalancerProxy) WebSocketHandler(w http.ResponseWriter, r *http.Request
 			}
 
 		case "captcha_event":
-			// Handle captcha event - just log for now
 			log.Printf("Received captcha event from user %s", msg.UserID)
 
 		default:
@@ -623,7 +620,6 @@ func (bp *BalancerProxy) ValidateChallengeHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Get the first available captcha service
 	client := bp.GetNextClient()
 	if client == nil {
 		http.Error(w, "No captcha services available", http.StatusServiceUnavailable)
@@ -633,7 +629,6 @@ func (bp *BalancerProxy) ValidateChallengeHandler(w http.ResponseWriter, r *http
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Convert answer to JSON string
 	answerJSON, err := json.Marshal(req.Answer)
 	if err != nil {
 		http.Error(w, "Failed to marshal answer", http.StatusBadRequest)
@@ -835,7 +830,6 @@ func (bp *BalancerProxy) blockUser(userID string, durationMinutes int) {
 	if session, exists := bp.sessions[userID]; exists {
 		session.IsBlocked = true
 		session.BlockedUntil = time.Now().Add(time.Duration(durationMinutes) * time.Minute)
-		// BlockDuration is not a field in UserSession
 		log.Printf("User %s blocked for %d minutes until %v", userID, durationMinutes, session.BlockedUntil)
 	}
 }
@@ -892,7 +886,6 @@ func (bp *BalancerProxy) resetAttempts(userID string) {
 }
 
 func (bp *BalancerProxy) isUserBlockedInSession(userID string) (bool, string) {
-	// Use global blocker instead of session-based blocking
 	if bp.globalBlocker.IsUserBlocked(userID) {
 		blockedUser, err := bp.globalBlocker.GetBlockedUser(userID)
 		if err == nil {

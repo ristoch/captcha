@@ -7,7 +7,6 @@ import (
 	"captcha-service/internal/domain/entity"
 )
 
-// SessionCache provides memory-efficient session storage
 type SessionCache struct {
 	sessions      map[string]*entity.UserSession
 	mu            sync.RWMutex
@@ -16,7 +15,6 @@ type SessionCache struct {
 	stopChan      chan struct{}
 }
 
-// NewSessionCache creates a new session cache
 func NewSessionCache(maxSessions int) *SessionCache {
 	cache := &SessionCache{
 		sessions:    make(map[string]*entity.UserSession),
@@ -24,12 +22,10 @@ func NewSessionCache(maxSessions int) *SessionCache {
 		stopChan:    make(chan struct{}),
 	}
 
-	// Start cleanup goroutine
 	cache.startCleanup()
 	return cache
 }
 
-// Get retrieves a session by ID
 func (c *SessionCache) Get(sessionID string) (*entity.UserSession, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -39,7 +35,6 @@ func (c *SessionCache) Get(sessionID string) (*entity.UserSession, bool) {
 		return nil, false
 	}
 
-	// Check if session is expired
 	if time.Since(session.LastSeen) > 30*time.Minute {
 		return nil, false
 	}
@@ -47,12 +42,10 @@ func (c *SessionCache) Get(sessionID string) (*entity.UserSession, bool) {
 	return session, true
 }
 
-// Set stores a session
 func (c *SessionCache) Set(sessionID string, session *entity.UserSession) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check if we need to evict old sessions
 	if len(c.sessions) >= c.maxSessions {
 		c.evictOldestSessions()
 	}
@@ -60,7 +53,6 @@ func (c *SessionCache) Set(sessionID string, session *entity.UserSession) {
 	c.sessions[sessionID] = session
 }
 
-// Delete removes a session
 func (c *SessionCache) Delete(sessionID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -68,15 +60,12 @@ func (c *SessionCache) Delete(sessionID string) {
 	delete(c.sessions, sessionID)
 }
 
-// evictOldestSessions removes the oldest sessions to make room for new ones
 func (c *SessionCache) evictOldestSessions() {
-	// Calculate how many to evict (remove 20% of max capacity)
 	evictCount := c.maxSessions / 5
 	if evictCount == 0 {
 		evictCount = 1
 	}
 
-	// Find oldest sessions
 	type sessionWithTime struct {
 		id       string
 		lastSeen time.Time
@@ -90,7 +79,6 @@ func (c *SessionCache) evictOldestSessions() {
 		})
 	}
 
-	// Sort by last seen time (oldest first)
 	for i := 0; i < len(oldest)-1; i++ {
 		for j := i + 1; j < len(oldest); j++ {
 			if oldest[i].lastSeen.After(oldest[j].lastSeen) {
@@ -99,13 +87,11 @@ func (c *SessionCache) evictOldestSessions() {
 		}
 	}
 
-	// Remove oldest sessions
 	for i := 0; i < evictCount && i < len(oldest); i++ {
 		delete(c.sessions, oldest[i].id)
 	}
 }
 
-// startCleanup starts a background goroutine to clean up expired sessions
 func (c *SessionCache) startCleanup() {
 	c.cleanupTicker = time.NewTicker(5 * time.Minute)
 
@@ -121,7 +107,6 @@ func (c *SessionCache) startCleanup() {
 	}()
 }
 
-// cleanup removes expired sessions
 func (c *SessionCache) cleanup() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -134,7 +119,6 @@ func (c *SessionCache) cleanup() {
 	}
 }
 
-// Stop stops the cleanup goroutine
 func (c *SessionCache) Stop() {
 	if c.cleanupTicker != nil {
 		c.cleanupTicker.Stop()
@@ -142,7 +126,6 @@ func (c *SessionCache) Stop() {
 	close(c.stopChan)
 }
 
-// GetStats returns cache statistics
 func (c *SessionCache) GetStats() map[string]interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

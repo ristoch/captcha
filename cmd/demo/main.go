@@ -28,7 +28,6 @@ func main() {
 	_ = cache.NewSessionCache(5000) // 5k max sessions (for future use)
 	demoUsecase := usecase.NewDemoUsecase(sessionRepo, cfg)
 
-	// Create a simple template
 	tmpl := template.New("demo")
 
 	demoHandler := httpTransport.NewDemoHandler(demoUsecase, tmpl)
@@ -44,7 +43,6 @@ func main() {
 	mux.HandleFunc("/health", demoHandler.HandleHealth)
 	mux.HandleFunc("/demo", demoHandler.HandleDemo)
 	mux.HandleFunc("/performance", func(w http.ResponseWriter, r *http.Request) {
-		// Performance test placeholder
 		http.Error(w, "Performance test not implemented", http.StatusNotImplemented)
 	})
 

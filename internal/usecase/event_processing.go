@@ -13,7 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// EventProcessingUseCase handles event processing business logic
 type EventProcessingUseCase struct {
 	eventProcessor    interfaces.EventProcessor
 	eventStreamMgr    interfaces.EventStreamManager
@@ -22,7 +21,6 @@ type EventProcessingUseCase struct {
 	generatorRegistry interfaces.GeneratorRegistry
 }
 
-// NewEventProcessingUseCase creates a new event processing use case
 func NewEventProcessingUseCase(
 	eventProcessor interfaces.EventProcessor,
 	eventStreamMgr interfaces.EventStreamManager,
@@ -39,14 +37,12 @@ func NewEventProcessingUseCase(
 	}
 }
 
-// ProcessBinaryEvent processes a binary event from the client
 func (uc *EventProcessingUseCase) ProcessBinaryEvent(ctx context.Context, challengeID string, eventType entity.BinaryEventType, data []byte) (*entity.EventResult, error) {
 	logger.Debug("Processing binary event",
 		zap.String("challenge_id", challengeID),
 		zap.Int("event_type", int(eventType)),
 		zap.Int("data_length", len(data)))
 
-	// Validate challenge exists and is not expired
 	challenge, err := uc.challengeRepo.GetChallenge(ctx, challengeID)
 	if err != nil {
 		return entity.NewEventResult(false, "Challenge not found", nil), err
@@ -56,13 +52,11 @@ func (uc *EventProcessingUseCase) ProcessBinaryEvent(ctx context.Context, challe
 		return entity.NewEventResult(false, "Challenge expired", nil), fmt.Errorf("challenge expired")
 	}
 
-	// Create binary event
 	binaryEvent := &entity.BinaryEvent{
 		Type:      eventType,
 		Timestamp: time.Now().UnixNano(),
 	}
 
-	// Process based on event type
 	switch eventType {
 	case entity.EventTypeSliderMoved:
 		position, _, err := entity.UnpackSliderEvent(data)
@@ -101,19 +95,16 @@ func (uc *EventProcessingUseCase) ProcessBinaryEvent(ctx context.Context, challe
 	}
 }
 
-// ProcessJSONEvent processes a JSON event from the client
 func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventData *entity.WebSocketMessage) (*entity.EventResult, error) {
 	logger.Debug("Processing JSON event",
 		zap.String("user_id", eventData.UserID),
 		zap.String("type", eventData.Type))
 
-	// Extract challenge ID from data
 	challengeID, ok := eventData.Data["challenge_id"].(string)
 	if !ok {
 		return entity.NewEventResult(false, "Challenge ID not found", nil), fmt.Errorf("challenge ID not found")
 	}
 
-	// Validate challenge exists and is not expired
 	challenge, err := uc.challengeRepo.GetChallenge(ctx, challengeID)
 	if err != nil {
 		return entity.NewEventResult(false, "Challenge not found", nil), err
@@ -123,12 +114,10 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 		return entity.NewEventResult(false, "Challenge expired", nil), fmt.Errorf("challenge expired")
 	}
 
-	// Create binary event
 	binaryEvent := &entity.BinaryEvent{
 		Timestamp: time.Now().UnixNano(),
 	}
 
-	// Process based on event type
 	switch eventData.Type {
 	case "slider_moved":
 		position, ok := eventData.Data["position"].(float64)
@@ -164,17 +153,14 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 	}
 }
 
-// CreateEventStream creates a new event stream for a challenge
 func (uc *EventProcessingUseCase) CreateEventStream(ctx context.Context, challengeID string) (interfaces.EventStream, error) {
 	logger.Debug("Creating event stream", zap.String("challenge_id", challengeID))
 
-	// Validate challenge exists
 	_, err := uc.challengeRepo.GetChallenge(ctx, challengeID)
 	if err != nil {
 		return nil, fmt.Errorf("challenge not found: %w", err)
 	}
 
-	// Create stream
 	stream, err := uc.eventStreamMgr.CreateStream(challengeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stream: %w", err)
@@ -183,7 +169,6 @@ func (uc *EventProcessingUseCase) CreateEventStream(ctx context.Context, challen
 	return stream, nil
 }
 
-// PublishEvent publishes an event
 func (uc *EventProcessingUseCase) PublishEvent(ctx context.Context, event *entity.BinaryEvent) error {
 	logger.Debug("Publishing event",
 		zap.Int("event_type", int(event.Type)),

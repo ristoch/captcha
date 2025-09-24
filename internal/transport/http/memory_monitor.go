@@ -11,14 +11,12 @@ import (
 	"captcha-service/internal/service"
 )
 
-// MemoryMonitor provides memory monitoring endpoints
 type MemoryMonitor struct {
 	challengeRepo *persistence.MemoryOptimizedRepository
 	sessionCache  *cache.SessionCache
 	globalBlocker *service.GlobalUserBlocker
 }
 
-// NewMemoryMonitor creates a new memory monitor
 func NewMemoryMonitor(
 	challengeRepo *persistence.MemoryOptimizedRepository,
 	sessionCache *cache.SessionCache,
@@ -31,7 +29,6 @@ func NewMemoryMonitor(
 	}
 }
 
-// HandleMemoryStats returns memory statistics
 func (m *MemoryMonitor) HandleMemoryStats(w http.ResponseWriter, r *http.Request) {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -58,7 +55,6 @@ func (m *MemoryMonitor) HandleMemoryStats(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(response)
 }
 
-// HandleMemoryGC triggers garbage collection
 func (m *MemoryMonitor) HandleMemoryGC(w http.ResponseWriter, r *http.Request) {
 	before := runtime.MemStats{}
 	runtime.ReadMemStats(&before)

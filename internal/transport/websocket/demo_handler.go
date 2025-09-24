@@ -16,16 +16,12 @@ import (
 )
 
 const (
-	// Time allowed to write a message to the peer.
 	writeWait = 10 * time.Second
 
-	// Time allowed to read the next pong message from the peer.
 	pongWait = 60 * time.Second
 
-	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
 
-	// Maximum message size allowed from peer.
 	maxMessageSize = 512
 
 	MessageTypeChallengeRequest   = "challenge_request"
@@ -107,7 +103,6 @@ func (h *DemoWebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Re
 
 	log.Printf("WebSocket client connected for user: %s", userID)
 
-	// Goroutine to read messages from the client
 	go func() {
 		conn.SetReadLimit(maxMessageSize)
 		conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -121,7 +116,6 @@ func (h *DemoWebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Re
 				break
 			}
 
-			// Handle binary data (as per requirements)
 			if messageType == websocket.BinaryMessage {
 				h.handleBinaryMessage(conn, data, userID)
 			} else {
@@ -132,7 +126,6 @@ func (h *DemoWebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Re
 		delete(h.connections, userID) // Remove connection on disconnect
 	}()
 
-	// Goroutine to send pings to the client
 	ticker := time.NewTicker(pingPeriod)
 	defer ticker.Stop()
 
@@ -150,21 +143,18 @@ func (h *DemoWebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// Handle binary messages (optimized data transfer as per requirements)
 func (h *DemoWebSocketHandler) handleBinaryMessage(conn *websocket.Conn, data []byte, userID string) {
 	if len(data) < 4 {
 		log.Printf("Invalid binary message length: %d", len(data))
 		return
 	}
 
-	// Parse binary format: [4 bytes JSON length][JSON data][binary data]
 	jsonLength := binary.LittleEndian.Uint32(data[:4])
 	if len(data) < int(4+jsonLength) {
 		log.Printf("Invalid binary message format")
 		return
 	}
 
-	// Extract JSON part
 	jsonData := data[4 : 4+jsonLength]
 	var msg WebSocketMessage
 	if err := json.Unmarshal(jsonData, &msg); err != nil {
@@ -172,15 +162,12 @@ func (h *DemoWebSocketHandler) handleBinaryMessage(conn *websocket.Conn, data []
 		return
 	}
 
-	// Extract binary payload
 	binaryPayload := data[4+jsonLength:]
 	msg.UserID = userID
 
-	// Process the message
 	h.processMessage(conn, msg, binaryPayload)
 }
 
-// Handle text messages (JSON)
 func (h *DemoWebSocketHandler) handleTextMessage(conn *websocket.Conn, data []byte, userID string) {
 	var msg WebSocketMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
@@ -192,7 +179,6 @@ func (h *DemoWebSocketHandler) handleTextMessage(conn *websocket.Conn, data []by
 	h.processMessage(conn, msg, nil)
 }
 
-// Process incoming message
 func (h *DemoWebSocketHandler) processMessage(conn *websocket.Conn, msg WebSocketMessage, binaryData []byte) {
 	switch msg.Type {
 	case MessageTypeChallengeRequest:
@@ -204,18 +190,15 @@ func (h *DemoWebSocketHandler) processMessage(conn *websocket.Conn, msg WebSocke
 	}
 }
 
-// Handle challenge request
 func (h *DemoWebSocketHandler) handleChallengeRequest(conn *websocket.Conn, msg WebSocketMessage) {
 	userID := msg.UserID
 	sessionID := msg.SessionID
 
-	// Check if user is blocked
 	if h.isUserBlocked(userID) {
 		h.sendBlockedResponse(conn, userID, sessionID, "", "User is blocked due to too many failed attempts")
 		return
 	}
 
-	// Create new challenge (mock for now)
 	challenge := &entity.Challenge{
 		ID:         fmt.Sprintf("challenge_%d", time.Now().UnixNano()),
 		Type:       "slider_puzzle",
@@ -223,7 +206,6 @@ func (h *DemoWebSocketHandler) handleChallengeRequest(conn *websocket.Conn, msg 
 		HTML:       h.generateSliderPuzzleHTML(),
 	}
 
-	// Send challenge response
 	response := WebSocketMessage{
 		Type:          MessageTypeChallengeResponse,
 		UserID:        userID,
@@ -240,22 +222,18 @@ func (h *DemoWebSocketHandler) handleChallengeRequest(conn *websocket.Conn, msg 
 	log.Printf("Challenge created for user %s: %s", userID, challenge.ID)
 }
 
-// Handle validation request
 func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg WebSocketMessage, binaryData []byte) {
 	userID := msg.UserID
 	sessionID := msg.SessionID
 	challengeID := msg.ChallengeID
 
-	// Check if user is blocked
 	if h.isUserBlocked(userID) {
 		h.sendBlockedResponse(conn, userID, sessionID, challengeID, "User is blocked due to too many failed attempts")
 		return
 	}
 
-	// Extract answer from binary data or message data
 	var answer interface{}
 	if binaryData != nil && len(binaryData) > 0 {
-		// Parse binary data for coordinates
 		if len(binaryData) >= 4 {
 			packed := binary.LittleEndian.Uint32(binaryData)
 			answer = map[string]interface{}{
@@ -272,18 +250,14 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 		return
 	}
 
-	// Mock validation for now
 	valid := h.mockValidateAnswer(answer)
 	confidence := int32(85)
 
-	// Handle validation result
 	if valid {
-		// Success - reset attempts
 		h.resetUserAttempts(userID)
 		h.sendValidationResponse(conn, userID, sessionID, challengeID, true, confidence, false, "")
 		log.Printf("Challenge %s validated successfully for user %s", challengeID, userID)
 	} else {
-		// Failed - increment attempts
 		shouldBlock := h.incrementUserAttempts(userID)
 
 		if shouldBlock {
@@ -291,7 +265,6 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 			h.sendValidationResponse(conn, userID, sessionID, challengeID, false, confidence, true, "User blocked due to too many failed attempts")
 			log.Printf("User %s blocked after failed validation", userID)
 		} else {
-			// Create new challenge on failure
 			newChallenge := &entity.Challenge{
 				ID:         fmt.Sprintf("challenge_%d", time.Now().UnixNano()),
 				Type:       "slider_puzzle",
@@ -299,7 +272,6 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 				HTML:       h.generateSliderPuzzleHTML(),
 			}
 
-			// Send new challenge with validation response
 			response := WebSocketMessage{
 				Type:          MessageTypeValidationResponse,
 				UserID:        userID,
@@ -324,9 +296,7 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 	}
 }
 
-// Helper methods
 func (h *DemoWebSocketHandler) getOrCreateSession(w http.ResponseWriter, r *http.Request) string {
-	// Get session ID from cookie or create new one
 	cookie, err := r.Cookie("session_id")
 	if err != nil || cookie.Value == "" {
 		sessionID := h.generateSessionID()
@@ -343,13 +313,10 @@ func (h *DemoWebSocketHandler) getOrCreateSession(w http.ResponseWriter, r *http
 }
 
 func (h *DemoWebSocketHandler) getUserIDFromSession(sessionID string) string {
-	// For demo purposes, use session ID as user ID
-	// In production, you would look up the user ID from the session
 	return sessionID
 }
 
 func (h *DemoWebSocketHandler) generateSessionID() string {
-	// Simple session ID generation for demo
 	return fmt.Sprintf("session_%d", time.Now().UnixNano())
 }
 
@@ -411,9 +378,7 @@ func (h *DemoWebSocketHandler) sendValidationResponse(conn *websocket.Conn, user
 	h.sendMessage(conn, response)
 }
 
-// Mock methods for demo purposes
 func (h *DemoWebSocketHandler) mockValidateAnswer(answer interface{}) bool {
-	// Simple mock validation - always return false for demo
 	return false
 }
 
@@ -438,13 +403,11 @@ func (h *DemoWebSocketHandler) generateSliderPuzzleHTML() string {
         <div class="message" id="message">Move the slider to complete the puzzle</div>
     </div>
     <script>
-        // Mock puzzle implementation
         const canvas = document.getElementById('puzzle');
         const ctx = canvas.getContext('2d');
         const slider = document.getElementById('slider');
         const message = document.getElementById('message');
         
-        // Draw mock puzzle
         ctx.fillStyle = '#f0f0f0';
         ctx.fillRect(0, 0, 300, 200);
         ctx.fillStyle = '#333';
@@ -452,7 +415,6 @@ func (h *DemoWebSocketHandler) generateSliderPuzzleHTML() string {
         
         slider.addEventListener('input', function() {
             const value = this.value;
-            // Send data to parent via postMessage
             window.top.postMessage({
                 type: 'captcha:sendData',
                 eventType: 'slider_move',

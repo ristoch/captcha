@@ -117,9 +117,7 @@ func (u *DemoUsecase) generateSessionID() string {
 	return fmt.Sprintf("session_%d_%d", time.Now().UnixNano(), len(sessions))
 }
 
-// CreateChallenge creates a new challenge for the user
 func (u *DemoUsecase) CreateChallenge(userID, challengeType string, complexity int32) (*entity.Challenge, error) {
-	// Check if user is blocked
 	blocked, err := u.IsUserBlocked(userID)
 	if err != nil {
 		return nil, err
@@ -128,7 +126,6 @@ func (u *DemoUsecase) CreateChallenge(userID, challengeType string, complexity i
 		return nil, fmt.Errorf("user is blocked")
 	}
 
-	// Create a simple challenge for demo
 	challenge := &entity.Challenge{
 		ID:         fmt.Sprintf("demo_%d", time.Now().UnixNano()),
 		Type:       challengeType,
@@ -143,19 +140,15 @@ func (u *DemoUsecase) CreateChallenge(userID, challengeType string, complexity i
 	return challenge, nil
 }
 
-// ValidateChallenge validates a challenge answer
 func (u *DemoUsecase) ValidateChallenge(userID, challengeID string, answer map[string]interface{}) (bool, int32, error) {
-	// Get user session
 	session, err := u.sessionRepo.GetSessionByUserID(userID)
 	if err != nil {
-		// Create new session if not exists
 		session, err = u.CreateSession(userID)
 		if err != nil {
 			return false, 0, err
 		}
 	}
 
-	// Check if user is blocked
 	blocked, err := u.IsUserBlocked(userID)
 	if err != nil {
 		return false, 0, err
@@ -164,7 +157,6 @@ func (u *DemoUsecase) ValidateChallenge(userID, challengeID string, answer map[s
 		return false, 0, fmt.Errorf("user is blocked")
 	}
 
-	// Simple validation logic for demo
 	x, xOk := answer["x"].(float64)
 	y, yOk := answer["y"].(float64)
 
@@ -173,7 +165,6 @@ func (u *DemoUsecase) ValidateChallenge(userID, challengeID string, answer map[s
 		return false, 0, fmt.Errorf("invalid answer format")
 	}
 
-	// Demo validation: check if answer is close to target (200, 150)
 	targetX, targetY := 200.0, 150.0
 	tolerance := 20.0
 
@@ -181,7 +172,6 @@ func (u *DemoUsecase) ValidateChallenge(userID, challengeID string, answer map[s
 	diffY := y - targetY
 
 	if diffX*diffX+diffY*diffY <= tolerance*tolerance {
-		// Success - reset attempts
 		session.Attempts = 0
 		session.IsBlocked = false
 		session.BlockedUntil = time.Time{}
@@ -189,7 +179,6 @@ func (u *DemoUsecase) ValidateChallenge(userID, challengeID string, answer map[s
 		return true, 85, nil
 	}
 
-	// Failed attempt
 	u.recordFailedAttempt(session)
 	return false, 0, nil
 }
@@ -228,7 +217,6 @@ func (u *DemoUsecase) generateChallengeHTML(challengeType string, complexity int
 				const x = parseInt(document.getElementById('xSlider').value);
 				const y = parseInt(document.getElementById('ySlider').value);
 				
-				// Send validation via WebSocket
 				if (window.parent && window.parent.validateChallengeViaWebSocket) {
 					window.parent.validateChallengeViaWebSocket(x, y);
 				} else {

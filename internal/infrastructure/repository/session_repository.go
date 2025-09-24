@@ -53,7 +53,6 @@ func (r *InMemorySessionRepository) GetSession(sessionID string) (*entity.UserSe
 	return session, nil
 }
 
-// GetSessionByUserID retrieves a user session by user ID.
 func (r *InMemorySessionRepository) GetSessionByUserID(userID string) (*entity.UserSession, error) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()

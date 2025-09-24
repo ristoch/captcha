@@ -39,7 +39,5 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop(ctx context.Context) error {
-	// HTTP server doesn't have a graceful stop method in this implementation
-	// In a real implementation, you would use server.Shutdown(ctx)
 	return nil
 }

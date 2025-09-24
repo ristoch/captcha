@@ -33,7 +33,6 @@ func (h *Handlers) NewChallenge(ctx context.Context, req *captchav1.ChallengeReq
 		return nil, err
 	}
 
-	// Генерируем HTML для challenge
 	html := h.generateChallengeHTML(challenge)
 	if html == "" {
 		logger.Error("Failed to generate HTML for challenge")
@@ -47,8 +46,6 @@ func (h *Handlers) NewChallenge(ctx context.Context, req *captchav1.ChallengeReq
 }
 
 func (h *Handlers) generateChallengeHTML(challenge *entity.Challenge) string {
-	// Здесь должна быть генерация HTML на основе challenge.Data
-	// Пока возвращаем простой HTML
 	return `<div class="captcha-container">
 		<h3>Slider Puzzle Captcha</h3>
 		<p>Challenge ID: ` + challenge.ID + `</p>

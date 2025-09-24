@@ -35,12 +35,6 @@ func main() {
 	}
 	defer logger.Get().Sync()
 
-	// Tracing disabled for now
-	// if err := tracing.Init(serviceName, cfg.JaegerEndpoint); err != nil {
-	// 	logger.Fatal("Failed to initialize tracer", zap.Error(err))
-	// }
-
-	// Use memory-optimized repository for better performance
 	repo := persistence.NewMemoryOptimizedRepository(10000) // 10k max challenges
 
 	templateEngine := template.NewTemplateEngineService("./templates")
@@ -61,8 +55,6 @@ func main() {
 	}
 
 	logger.Info("Found available port", zap.Int("port", availablePort))
-
-	// Port is set to availablePort
 
 	balancerClient := balancer.NewClient(cfg)
 

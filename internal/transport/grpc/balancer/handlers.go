@@ -30,7 +30,6 @@ func (h *Handlers) RegisterInstance(stream protoBalancer.BalancerService_Registe
 
 		log.Printf("Received register instance request: %+v", req)
 
-		// Конвертируем proto в entity
 		entityReq := &entity.RegisterInstanceRequest{
 			EventType:     req.EventType.String(),
 			InstanceID:    req.InstanceId,
@@ -40,7 +39,6 @@ func (h *Handlers) RegisterInstance(stream protoBalancer.BalancerService_Registe
 			Timestamp:     req.Timestamp,
 		}
 
-		// Регистрируем инстанс в service
 		if err := h.balancerService.RegisterInstance(entityReq); err != nil {
 			log.Printf("Failed to register instance: %v", err)
 			resp := &protoBalancer.RegisterInstanceResponse{

@@ -128,7 +128,6 @@ const (
 var ErrWebSocketNotConnected = errors.New("websocket not connected")
 var ErrUserBlocked = errors.New("user blocked")
 
-// Config represents main configuration
 type Config struct {
 	Host                 string `env:"HOST" envDefault:"localhost"`
 	Port                 string `env:"PORT" envDefault:"8080"`
@@ -157,7 +156,6 @@ type Config struct {
 	BlockDurationMin     int32  `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
 }
 
-// DemoConfig represents configuration for demo service
 type DemoConfig struct {
 	Port              string `env:"DEMO_PORT" envDefault:"8082"`
 	CaptchaServiceURL string `env:"CAPTCHA_SERVICE_URL" envDefault:"http://localhost:8081"`
@@ -165,7 +163,6 @@ type DemoConfig struct {
 	BlockDuration     int32  `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
 }
 
-// Instance represents a service instance
 type Instance struct {
 	ID           string    `json:"id"`
 	Type         string    `json:"type"`
@@ -176,7 +173,6 @@ type Instance struct {
 	RegisteredAt time.Time `json:"registered_at"`
 }
 
-// BlockedUser represents a blocked user
 type BlockedUser struct {
 	UserID       string    `json:"user_id"`
 	BlockedUntil time.Time `json:"blocked_until"`
@@ -185,7 +181,6 @@ type BlockedUser struct {
 	LastAttempt  time.Time `json:"last_attempt"`
 }
 
-// RegisterInstanceRequest represents a request to register an instance
 type RegisterInstanceRequest struct {
 	EventType     string `json:"event_type"`
 	InstanceID    string `json:"instance_id"`
@@ -195,14 +190,12 @@ type RegisterInstanceRequest struct {
 	Timestamp     int64  `json:"timestamp"`
 }
 
-// WebSocketMessage represents a WebSocket message
 type WebSocketMessage struct {
 	Type   string                 `json:"type"`
 	UserID string                 `json:"user_id,omitempty"`
 	Data   map[string]interface{} `json:"data,omitempty"`
 }
 
-// UserSession represents a user session
 type UserSession struct {
 	UserID       string    `json:"user_id"`
 	SessionID    string    `json:"session_id"`
@@ -213,7 +206,6 @@ type UserSession struct {
 	BlockedUntil time.Time `json:"blocked_until"`
 }
 
-// DemoData represents demo data
 type DemoData struct {
 	UserID      string `json:"user_id"`
 	SessionID   string `json:"session_id"`
@@ -221,7 +213,6 @@ type DemoData struct {
 	HTML        string `json:"html"`
 }
 
-// SessionRepository interface
 type SessionRepository interface {
 	CreateSession(userID string) (*UserSession, error)
 	GetSession(sessionID string) (*UserSession, error)

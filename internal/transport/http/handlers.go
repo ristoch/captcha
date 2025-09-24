@@ -61,7 +61,6 @@ func (h *Handlers) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// Simple WebSocket echo for now
 	for {
 		messageType, message, err := conn.ReadMessage()
 		if err != nil {

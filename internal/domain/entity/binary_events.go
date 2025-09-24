@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// BinaryEventType represents the type of binary event
 type BinaryEventType int
 
 const (
@@ -20,7 +19,6 @@ const (
 
 var ErrInvalidBinaryData = errors.New("invalid binary data")
 
-// BinaryEvent represents a packed binary event
 type BinaryEvent struct {
 	Type      BinaryEventType
 	X         int32
@@ -29,14 +27,11 @@ type BinaryEvent struct {
 	Data      []byte
 }
 
-// PackSliderEvent packs slider position and timestamp into binary data
-// Coordinates are limited to 8192x8192 as per requirements
 func PackSliderEvent(position int32, timestamp int64) []byte {
 	if position < 0 || position > 8191 {
 		return nil
 	}
 
-	// Pack: 13 bits for position (0-8191), 38 bits for timestamp
 	packed := (uint64(position) << 38) | (uint64(timestamp) & 0x3FFFFFFFFF)
 
 	result := make([]byte, 7)
@@ -47,13 +42,11 @@ func PackSliderEvent(position int32, timestamp int64) []byte {
 	return result
 }
 
-// PackClickEvent packs click coordinates and timestamp into binary data
 func PackClickEvent(x, y int32, timestamp int64) []byte {
 	if x < 0 || x > 8191 || y < 0 || y > 8191 {
 		return nil
 	}
 
-	// Pack: 13 bits for x, 13 bits for y, 38 bits for timestamp
 	packed := (uint64(x) << 51) | (uint64(y) << 38) | (uint64(timestamp) & 0x3FFFFFFFFF)
 
 	result := make([]byte, 8)
@@ -64,7 +57,6 @@ func PackClickEvent(x, y int32, timestamp int64) []byte {
 	return result
 }
 
-// UnpackSliderEvent unpacks binary data to slider position and timestamp
 func UnpackSliderEvent(data []byte) (position int32, timestamp int64, err error) {
 	if len(data) != 7 {
 		return 0, 0, ErrInvalidBinaryData
@@ -81,7 +73,6 @@ func UnpackSliderEvent(data []byte) (position int32, timestamp int64, err error)
 	return position, timestamp, nil
 }
 
-// UnpackClickEvent unpacks binary data to click coordinates and timestamp
 func UnpackClickEvent(data []byte) (x, y int32, timestamp int64, err error) {
 	if len(data) != 8 {
 		return 0, 0, 0, ErrInvalidBinaryData
@@ -99,7 +90,6 @@ func UnpackClickEvent(data []byte) (x, y int32, timestamp int64, err error) {
 	return x, y, timestamp, nil
 }
 
-// EventData represents event data for processing
 type EventData struct {
 	ChallengeID string                 `json:"challenge_id"`
 	UserID      string                 `json:"user_id"`
@@ -108,7 +98,6 @@ type EventData struct {
 	Timestamp   int64                  `json:"timestamp"`
 }
 
-// NewEventData creates a new event data
 func NewEventData(challengeID, userID, eventType string, data map[string]interface{}) *EventData {
 	return &EventData{
 		ChallengeID: challengeID,
@@ -119,7 +108,6 @@ func NewEventData(challengeID, userID, eventType string, data map[string]interfa
 	}
 }
 
-// EventResult represents the result of event processing
 type EventResult struct {
 	Success   bool                   `json:"success"`
 	Message   string                 `json:"message,omitempty"`
@@ -127,7 +115,6 @@ type EventResult struct {
 	Timestamp int64                  `json:"timestamp"`
 }
 
-// NewEventResult creates a new event result
 func NewEventResult(success bool, message string, data map[string]interface{}) *EventResult {
 	return &EventResult{
 		Success:   success,

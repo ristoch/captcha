@@ -44,7 +44,6 @@ func (g *SliderPuzzleGenerator) Generate(ctx context.Context, complexity int32, 
 		puzzleSize = int(g.config.PuzzleSizeHigh)
 	}
 
-	// Generate random position for the puzzle piece
 	_ = g.rand.Intn(canvasWidth - puzzleSize)
 	_ = g.rand.Intn(entity.CanvasHeight - puzzleSize - entity.PuzzleGapTop) // Avoid top area
 
@@ -81,31 +80,26 @@ func (g *SliderPuzzleGenerator) Validate(answer interface{}, data interface{}) (
 		return false, 0, fmt.Errorf("неверный формат ответа")
 	}
 
-	// Извлекаем координаты ответа
 	answeredX, xOk := answerMap["x"].(float64)
 	answeredY, yOk := answerMap["y"].(float64)
 	if !xOk || !yOk {
 		return false, 0, fmt.Errorf("неверные координаты ответа")
 	}
 
-	// Извлекаем данные челленджа
 	_, ok = data.(entity.SliderPuzzleData)
 	if !ok {
 		return false, 0, fmt.Errorf("неверный формат данных челленджа")
 	}
 
-	// Для демо, используем фиксированные значения
 	targetX := 200
 	targetY := 150
 	tolerance := 10
 
-	// Проверяем, находится ли ответ в пределах допуска
 	diffX := int(answeredX) - targetX
 	diffY := int(answeredY) - targetY
 
 	isValid := (diffX >= -tolerance && diffX <= tolerance) && (diffY >= -tolerance && diffY <= tolerance)
 
-	// Для демо, уверенность фиксированная
 	confidence := int32(85)
 
 	return isValid, confidence, nil

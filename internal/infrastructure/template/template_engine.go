@@ -14,26 +14,22 @@ import (
 	"go.uber.org/zap"
 )
 
-// TemplateEngineService implements the TemplateEngine interface
 type TemplateEngineService struct {
 	templates map[string]*template.Template
 	basePath  string
 }
 
-// NewTemplateEngineService creates a new template engine service
 func NewTemplateEngineService(basePath string) *TemplateEngineService {
 	tes := &TemplateEngineService{
 		templates: make(map[string]*template.Template),
 		basePath:  basePath,
 	}
 
-	// Load templates
 	tes.loadTemplates()
 
 	return tes
 }
 
-// loadTemplates loads all templates from the base path
 func (tes *TemplateEngineService) loadTemplates() {
 	templateFiles := map[string]string{
 		"slider_puzzle": "slider_puzzle.html",
@@ -57,7 +53,6 @@ func (tes *TemplateEngineService) loadTemplates() {
 	}
 }
 
-// RenderSliderPuzzle renders the slider puzzle template
 func (tes *TemplateEngineService) RenderSliderPuzzle(ctx context.Context, challenge *entity.Challenge) (string, error) {
 	tmpl, exists := tes.templates["slider_puzzle"]
 	if !exists {
@@ -68,7 +63,6 @@ func (tes *TemplateEngineService) RenderSliderPuzzle(ctx context.Context, challe
 		"challenge": challenge,
 	}
 
-	// Customize data for slider puzzle
 	data["PuzzleWidth"] = 60
 	data["PuzzleHeight"] = 60
 	data["PuzzleShape"] = "square"
@@ -76,7 +70,6 @@ func (tes *TemplateEngineService) RenderSliderPuzzle(ctx context.Context, challe
 	return tes.renderTemplate(tmpl, data)
 }
 
-// RenderDragDrop renders the drag and drop template
 func (tes *TemplateEngineService) RenderDragDrop(ctx context.Context, challenge *entity.Challenge) (string, error) {
 	tmpl, exists := tes.templates["drag_drop"]
 	if !exists {
@@ -87,7 +80,6 @@ func (tes *TemplateEngineService) RenderDragDrop(ctx context.Context, challenge 
 		"challenge": challenge,
 	}
 
-	// Customize data for drag and drop
 	data["PuzzleWidth"] = 40
 	data["PuzzleHeight"] = 40
 	data["PuzzleShape"] = "circle"
@@ -95,7 +87,6 @@ func (tes *TemplateEngineService) RenderDragDrop(ctx context.Context, challenge 
 	return tes.renderTemplate(tmpl, data)
 }
 
-// RenderBlockedPage renders the blocked user page
 func (tes *TemplateEngineService) RenderBlockedPage(ctx context.Context, userID, reason string) (string, error) {
 	tmpl, exists := tes.templates["blocked"]
 	if !exists {
@@ -110,7 +101,6 @@ func (tes *TemplateEngineService) RenderBlockedPage(ctx context.Context, userID,
 	return tes.renderTemplate(tmpl, data)
 }
 
-// RenderDemoPage renders the demo page
 func (tes *TemplateEngineService) RenderDemoPage(ctx context.Context, data *entity.DemoData) (string, error) {
 	tmpl, exists := tes.templates["demo"]
 	if !exists {
@@ -127,7 +117,6 @@ func (tes *TemplateEngineService) RenderDemoPage(ctx context.Context, data *enti
 	return tes.renderTemplate(tmpl, templateData)
 }
 
-// renderTemplate renders a template with the given data
 func (tes *TemplateEngineService) renderTemplate(tmpl *template.Template, data interface{}) (string, error) {
 	var buf bytes.Buffer
 
@@ -139,7 +128,6 @@ func (tes *TemplateEngineService) renderTemplate(tmpl *template.Template, data i
 	return buf.String(), nil
 }
 
-// ReloadTemplates reloads all templates from disk
 func (tes *TemplateEngineService) ReloadTemplates() error {
 	logger.Info("Reloading templates")
 	tes.templates = make(map[string]*template.Template)
@@ -147,7 +135,6 @@ func (tes *TemplateEngineService) ReloadTemplates() error {
 	return nil
 }
 
-// GetTemplateNames returns the names of all loaded templates
 func (tes *TemplateEngineService) GetTemplateNames() []string {
 	names := make([]string, 0, len(tes.templates))
 	for name := range tes.templates {
@@ -156,7 +143,6 @@ func (tes *TemplateEngineService) GetTemplateNames() []string {
 	return names
 }
 
-// Render renders a template with the given data
 func (tes *TemplateEngineService) Render(templateName string, data interface{}) (string, error) {
 	tmpl, exists := tes.templates[templateName]
 	if !exists {
@@ -165,5 +151,4 @@ func (tes *TemplateEngineService) Render(templateName string, data interface{}) 
 	return tes.renderTemplate(tmpl, data)
 }
 
-// Ensure TemplateEngineService implements the interface
 var _ interfaces.TemplateEngine = (*TemplateEngineService)(nil)
