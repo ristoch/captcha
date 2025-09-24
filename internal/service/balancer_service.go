@@ -1,0 +1,146 @@
+package service
+
+import (
+	"context"
+	"time"
+
+	protoBalancer "captcha-service/gen/proto/proto/balancer"
+	"captcha-service/internal/domain/entity"
+	"captcha-service/internal/domain/interfaces"
+	"captcha-service/pkg/logger"
+
+	"go.uber.org/zap"
+)
+
+type BalancerService struct {
+	instanceRepo  interfaces.InstanceRepository
+	userBlockRepo interfaces.UserBlockRepository
+	config        *entity.Config
+}
+
+func NewBalancerService(instanceRepo interfaces.InstanceRepository, userBlockRepo interfaces.UserBlockRepository, config *entity.Config) interfaces.BalancerService {
+	return &BalancerService{
+		instanceRepo:  instanceRepo,
+		userBlockRepo: userBlockRepo,
+		config:        config,
+	}
+}
+
+func (s *BalancerService) RegisterInstance(req *entity.RegisterInstanceRequest) error {
+	logger.Info("New instance registration started")
+
+	instance := &entity.Instance{
+		ID:           req.InstanceID,
+		Type:         req.ChallengeType,
+		Host:         req.Host,
+		Port:         req.PortNumber,
+		LastSeen:     time.Now(),
+		Status:       req.EventType,
+		RegisteredAt: time.Now(),
+	}
+
+	if req.EventType == "STOPPED" {
+		logger.Info("Instance stopped", zap.String("instance_id", req.InstanceID))
+		s.instanceRepo.RemoveInstance(req.InstanceID)
+	} else {
+		s.instanceRepo.SaveInstance(instance)
+	}
+
+	logger.Info("Instance registered",
+		zap.String("instance_id", req.InstanceID),
+		zap.String("challenge_type", req.ChallengeType),
+		zap.String("host", req.Host),
+		zap.Int32("port", req.PortNumber),
+		zap.String("event_type", req.EventType))
+
+	return nil
+}
+
+func (s *BalancerService) GetInstances() ([]*entity.Instance, error) {
+	instances, err := s.instanceRepo.GetAllInstances()
+	if err != nil {
+		return nil, err
+	}
+	return instances, nil
+}
+
+func (s *BalancerService) GetInstancesGRPC(ctx context.Context, req *protoBalancer.GetInstancesRequest) (*protoBalancer.GetInstancesResponse, error) {
+	instances, err := s.instanceRepo.GetAllInstances()
+	if err != nil {
+		return nil, err
+	}
+
+	protoInstances := make([]*protoBalancer.InstanceInfo, 0, len(instances))
+	for _, instance := range instances {
+		protoInstances = append(protoInstances, &protoBalancer.InstanceInfo{
+			InstanceId:    instance.ID,
+			ChallengeType: instance.Type,
+			Host:          instance.Host,
+			PortNumber:    instance.Port,
+			Status:        instance.Status,
+			LastSeen:      instance.LastSeen.Unix(),
+		})
+	}
+
+	return &protoBalancer.GetInstancesResponse{
+		Instances: protoInstances,
+		Count:     int32(len(protoInstances)),
+	}, nil
+}
+
+func (s *BalancerService) CheckUserBlocked(ctx context.Context, req *protoBalancer.CheckUserBlockedRequest) (*protoBalancer.CheckUserBlockedResponse, error) {
+	isBlocked := s.userBlockRepo.IsUserBlocked(req.UserId)
+	var blockedUser *entity.BlockedUser
+	if isBlocked {
+		blockedUser, _ = s.userBlockRepo.GetBlockedUser(req.UserId)
+	}
+	if !isBlocked {
+		return &protoBalancer.CheckUserBlockedResponse{
+			IsBlocked: false,
+		}, nil
+	}
+
+	return &protoBalancer.CheckUserBlockedResponse{
+		IsBlocked:    true,
+		Reason:       blockedUser.Reason,
+		BlockedUntil: blockedUser.BlockedUntil.Unix(),
+	}, nil
+}
+
+func (s *BalancerService) IsUserBlocked(userID string) bool {
+	return s.userBlockRepo.IsUserBlocked(userID)
+}
+
+func (s *BalancerService) BlockUser(userID, reason string) error {
+	return s.userBlockRepo.BlockUser(userID, reason)
+}
+
+func (s *BalancerService) BlockUserGRPC(ctx context.Context, req *protoBalancer.BlockUserRequest) (*protoBalancer.BlockUserResponse, error) {
+	err := s.BlockUser(req.UserId, req.Reason)
+	if err != nil {
+		return &protoBalancer.BlockUserResponse{
+			Status:  protoBalancer.BlockUserResponse_ERROR,
+			Message: err.Error(),
+		}, nil
+	}
+
+	return &protoBalancer.BlockUserResponse{
+		Status:  protoBalancer.BlockUserResponse_SUCCESS,
+		Message: "User blocked successfully",
+	}, nil
+}
+
+func (s *BalancerService) StartCleanup() {
+	ticker := time.NewTicker(time.Duration(s.config.CleanupInterval) * time.Second)
+	go func() {
+		for range ticker.C {
+			// Cleanup is handled by individual repositories
+			s.userBlockRepo.CleanupExpiredBlocks()
+		}
+	}()
+}
+
+func (s *BalancerService) Stop() {
+	// Stop cleanup and other background tasks
+	// Implementation depends on specific requirements
+}

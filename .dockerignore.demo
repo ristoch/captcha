@@ -1,0 +1,56 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+CONFIGURATION.md
+
+# Test files
+*_test.go
+tests/
+high_load_test.go
+
+# Generated files
+gen/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build artifacts
+demo-server
+*.exe
+
+# Environment files
+.env
+.env.local
+env.example
+
+# Docker files
+Dockerfile
+Dockerfile.demo
+docker-compose.yml
+.dockerignore
+.dockerignore.demo
+
+# Server files (not needed for demo)
+cmd/server/
+internal/delivery/grpc/
+internal/infrastructure/balancer/
+
+# But keep demo files
+!cmd/demo/

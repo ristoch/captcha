@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Captcha Demo - Advanced Testing</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 2.5em; }
+        .header p { margin: 10px 0 0; opacity: 0.9; }
+        .content { padding: 30px; }
+        .info { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .status { 
+            background: #d4edda; 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-radius: 8px; 
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
+        .error { 
+            background: #f8d7da; 
+            padding: 15px; 
+            margin: 15px 0; 
+            border-radius: 8px; 
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+        .captcha-container { 
+            border: 2px solid #e9ecef; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 12px;
+            background: #fafafa;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover { background: #0056b3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #1e7e34; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-info:hover { background: #138496; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        .performance-test {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 1px solid #b3d9ff;
+        }
+        .log-container {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .log-info { background: #d1ecf1; color: #0c5460; }
+        .log-success { background: #d4edda; color: #155724; }
+        .log-error { background: #f8d7da; color: #721c24; }
+        .log-warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧩 Captcha Demo</h1>
+            <p>Advanced Testing & Performance Monitoring</p>
+        </div>
+        
+        <div class="content">
+            <div class="info">
+                <h3>Challenge Information</h3>
+                <p><strong>Challenge ID:</strong> <code>{{.ChallengeID}}</code></p>
+                <p><strong>Complexity:</strong> {{.Complexity}}</p>
+                <p><strong>HTML Size:</strong> {{.HTMLSize}} characters</p>
+                <p><strong>Generated:</strong> <span id="generated-time"></span></p>
+            </div>
+
+            <div id="status" class="status">
+                <strong>Status:</strong> <span id="status-text">Connecting...</span>
+            </div>
+            
+            <div id="error" class="error">
+                <strong>Error:</strong> <span id="error-text"></span>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="ws-status">❌</div>
+                    <div class="stat-label">WebSocket</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="events-count">0</div>
+                    <div class="stat-label">Events</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="response-time">0ms</div>
+                    <div class="stat-label">Response Time</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="success-rate">0%</div>
+                    <div class="stat-label">Success Rate</div>
+                </div>
+            </div>
+
+            <div class="captcha-container">
+                <h3>Captcha Challenge</h3>
+                <iframe id="captcha-iframe" srcdoc="{{.HTML | html}}" width="100%" height="400" frameborder="0" style="border: none; border-radius: 8px;"></iframe>
+            </div>
+
+            <div class="controls">
+                <a href="/demo?complexity=10" class="btn btn-primary">Low Complexity (10)</a>
+                <a href="/demo?complexity=50" class="btn btn-primary">Medium Complexity (50)</a>
+                <a href="/demo?complexity=90" class="btn btn-primary">High Complexity (90)</a>
+                <button onclick="createChallengeViaWebSocket()" class="btn btn-primary">Create Challenge (WebSocket)</button>
+                <button onclick="runPerformanceTest()" class="btn btn-success">Performance Test</button>
+                <button onclick="clearLogs()" class="btn btn-warning">Clear Logs</button>
+                <button onclick="reconnectWebSocket()" class="btn btn-info">Reconnect WS</button>
+            </div>
+
+            <div class="performance-test">
+                <h3>Performance Testing</h3>
+                <p>Test the captcha service performance with different loads:</p>
+                <div style="margin: 10px 0;">
+                    <label>Iterations: <input type="number" id="iterations" value="100" min="1" max="1000" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></label>
+                    <label style="margin-left: 15px;">Concurrency: <input type="number" id="concurrency" value="10" min="1" max="50" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></label>
+                </div>
+                <div id="performance-results" style="margin-top: 15px;"></div>
+            </div>
+
+            <div class="log-container">
+                <h4>Event Log</h4>
+                <div id="log-entries"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentChallengeId = '{{.ChallengeID}}';
+        let userId = 'demo_user';
+        let eventCount = 0;
+        let successCount = 0;
+        let totalResponseTime = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('generated-time').textContent = new Date().toLocaleString();
+            connectWebSocket();
+        });
+
+        // WebSocket connection
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    log('WebSocket connected', 'success');
+                    updateWSStatus('✅');
+                    showStatus('Connected to WebSocket', 'success');
+                };
+                
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (e) {
+                        log('Failed to parse WebSocket message: ' + e.message, 'error');
+                    }
+                };
+                
+                ws.onclose = function() {
+                    log('WebSocket disconnected', 'warning');
+                    updateWSStatus('❌');
+                    showStatus('WebSocket disconnected', 'error');
+                };
+                
+                ws.onerror = function(error) {
+                    log('WebSocket error: ' + error, 'error');
+                    updateWSStatus('❌');
+                    showStatus('WebSocket error', 'error');
+                };
+            } catch (e) {
+                log('Failed to create WebSocket connection: ' + e.message, 'error');
+                updateWSStatus('❌');
+            }
+        }
+
+        function reconnectWebSocket() {
+            if (ws) {
+                ws.close();
+            }
+            connectWebSocket();
+        }
+
+        function createChallengeViaWebSocket() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showStatus('WebSocket not connected', 'error');
+                return;
+            }
+            
+            const complexity = getComplexityFromURL();
+            sendWebSocketMessage('challenge_request', {
+                challenge_type: 'slider-puzzle',
+                complexity: complexity
+            });
+        }
+
+        function getComplexityFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const complexity = urlParams.get('complexity');
+            return complexity ? parseInt(complexity) : 50;
+        }
+
+        function validateChallengeViaWebSocket(x, y) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showStatus('WebSocket not connected', 'error');
+                return;
+            }
+            
+            if (!currentChallengeId) {
+                showStatus('No active challenge', 'error');
+                return;
+            }
+            
+            sendWebSocketMessage('validate_challenge', {
+                challenge_id: currentChallengeId,
+                answer: { x: x, y: y }
+            });
+        }
+
+        function handleWebSocketMessage(data) {
+            eventCount++;
+            updateEventCount();
+            
+            log(`Received: ${data.type} (${JSON.stringify(data)})`, 'info');
+            
+            switch (data.type) {
+                case 'connected':
+                    showStatus('Connected to WebSocket', 'success');
+                    log('Connected to WebSocket for user: ' + data.data.user_id, 'success');
+                    break;
+                    
+                case 'user_blocked':
+                    showStatus('User is blocked: ' + data.data.message, 'error');
+                    log('User blocked: ' + data.data.message, 'error');
+                    // Disable challenge creation
+                    document.getElementById('challenge-container').innerHTML = 
+                        '<div class="error">User is blocked due to too many failed attempts. Please try again later.</div>';
+                    break;
+                    
+                case 'challenge_created':
+                    showStatus('Challenge created successfully', 'success');
+                    document.getElementById('challenge-container').innerHTML = data.data.html;
+                    currentChallengeId = data.data.challenge_id;
+                    log('Challenge created: ' + currentChallengeId, 'success');
+                    break;
+                    
+                case 'validation_result':
+                    if (data.data.valid) {
+                        successCount++;
+                        updateSuccessRate();
+                        showStatus('Challenge solved successfully!', 'success');
+                        log('Challenge solved with confidence: ' + data.data.confidence, 'success');
+                    } else {
+                        showStatus('Challenge failed. Try again.', 'error');
+                        log('Challenge failed', 'error');
+                    }
+                    break;
+                    
+                case 'challenge_completed':
+                    successCount++;
+                    updateSuccessRate();
+                    showStatus('Challenge completed!', 'success');
+                    break;
+                case 'challenge_failed':
+                    showStatus('Challenge failed', 'error');
+                    break;
+                case 'userBlocked':
+                    showStatus('User blocked due to too many attempts', 'error');
+                    break;
+                case 'newChallenge':
+                    showStatus('New challenge loaded', 'info');
+                    break;
+                default:
+                    log(`Unknown message type: ${data.type}`, 'warning');
+            }
+        }
+
+        function sendWebSocketMessage(type, data = {}) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const message = {
+                    type: type,
+                    challenge_id: currentChallengeId,
+                    user_id: userId,
+                    data: data
+                };
+                
+                const startTime = performance.now();
+                ws.send(JSON.stringify(message));
+                
+                // Calculate response time (simplified)
+                setTimeout(() => {
+                    const responseTime = performance.now() - startTime;
+                    totalResponseTime += responseTime;
+                    updateResponseTime();
+                }, 100);
+                
+                log(`Sent: ${type}`, 'info');
+            } else {
+                log('WebSocket not connected', 'error');
+            }
+        }
+
+        // Performance testing
+        async function runPerformanceTest() {
+            const iterations = parseInt(document.getElementById('iterations').value);
+            const concurrency = parseInt(document.getElementById('concurrency').value);
+            
+            log(`Starting performance test: ${iterations} iterations, ${concurrency} concurrency`, 'info');
+            
+            const resultsDiv = document.getElementById('performance-results');
+            resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Running test...</div>';
+            
+            try {
+                const response = await fetch(`/performance?iterations=${iterations}&concurrency=${concurrency}`);
+                const results = await response.json();
+                
+                resultsDiv.innerHTML = `
+                    <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                        <h4>Performance Test Results</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 15px 0;">
+                            <div><strong>RPS:</strong> ${results.rps.toFixed(2)}</div>
+                            <div><strong>Duration:</strong> ${results.duration_ms}ms</div>
+                            <div><strong>Success Rate:</strong> ${results.success_rate.toFixed(1)}%</div>
+                            <div><strong>Success Count:</strong> ${results.success_count}</div>
+                            <div><strong>Error Count:</strong> ${results.error_count}</div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <div style="background: #e9ecef; height: 20px; border-radius: 10px; overflow: hidden;">
+                                <div style="background: #28a745; height: 100%; width: ${results.success_rate}%; transition: width 0.3s;"></div>
+                            </div>
+                            <div style="text-align: center; margin-top: 5px; font-size: 0.9em; color: #6c757d;">
+                                Success Rate: ${results.success_rate.toFixed(1)}%
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                log(`Performance test completed: ${results.rps.toFixed(2)} RPS, ${results.success_rate.toFixed(1)}% success rate`, 'success');
+            } catch (error) {
+                log('Performance test failed: ' + error.message, 'error');
+                resultsDiv.innerHTML = '<div style="color: red; padding: 20px;">Test failed: ' + error.message + '</div>';
+            }
+        }
+
+        // UI updates
+        function updateWSStatus(status) {
+            document.getElementById('ws-status').textContent = status;
+        }
+
+        function updateEventCount() {
+            document.getElementById('events-count').textContent = eventCount;
+        }
+
+        function updateResponseTime() {
+            const avgTime = eventCount > 0 ? (totalResponseTime / eventCount).toFixed(0) : 0;
+            document.getElementById('response-time').textContent = avgTime + 'ms';
+        }
+
+        function updateSuccessRate() {
+            const rate = eventCount > 0 ? ((successCount / eventCount) * 100).toFixed(0) : 0;
+            document.getElementById('success-rate').textContent = rate + '%';
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            const statusText = document.getElementById('status-text');
+            const errorDiv = document.getElementById('error');
+            const errorText = document.getElementById('error-text');
+            
+            if (type === 'error') {
+                statusDiv.style.display = 'none';
+                errorDiv.style.display = 'block';
+                errorText.textContent = message;
+            } else {
+                errorDiv.style.display = 'none';
+                statusDiv.style.display = 'block';
+                statusText.textContent = message;
+                statusDiv.className = 'status ' + (type === 'success' ? 'log-success' : 'log-info');
+            }
+        }
+
+        function log(message, type = 'info') {
+            const logEntries = document.getElementById('log-entries');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry log-' + type;
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            logEntries.appendChild(logEntry);
+            logEntries.scrollTop = logEntries.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('log-entries').innerHTML = '';
+            eventCount = 0;
+            successCount = 0;
+            totalResponseTime = 0;
+            updateEventCount();
+            updateResponseTime();
+            updateSuccessRate();
+        }
+
+        // Listen for messages from iframe
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'captcha:sendData') {
+                log(`Iframe message: ${event.data.eventType}`, 'info');
+                
+                // Handle different event types
+                switch (event.data.eventType) {
+                    case 'captchaSolved':
+                        successCount++;
+                        updateSuccessRate();
+                        showStatus('Captcha solved!', 'success');
+                        break;
+                    case 'captchaFailed':
+                        showStatus(`Captcha failed (attempt ${event.data.data.attempts}/${event.data.data.maxAttempts})`, 'error');
+                        break;
+                    case 'userBlocked':
+                        showStatus('User blocked due to too many attempts', 'error');
+                        break;
+                    case 'newChallenge':
+                        showStatus('New challenge loaded', 'info');
+                        break;
+                    case 'captchaLoaded':
+                        showStatus('Captcha loaded', 'success');
+                        break;
+                }
+                
+                sendWebSocketMessage('captcha_event', event.data);
+            }
+        });
+    </script>
+</body>
+</html>

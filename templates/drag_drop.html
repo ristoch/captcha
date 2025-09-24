@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Капча - Перетаскивание</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .captcha-container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .captcha-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .canvas-container {
+            position: relative;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            margin: 20px 0;
+            background: #fafafa;
+        }
+        #captcha-canvas {
+            display: block;
+            cursor: move;
+        }
+        .instructions {
+            text-align: center;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        .success { color: #4CAF50; }
+        .error { color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="captcha-container">
+        <h2 class="captcha-title">Перетащите объект в цель</h2>
+        <p class="instructions">Перетащите синий квадрат в красную область</p>
+        <div class="canvas-container">
+            <canvas id="captcha-canvas" width="{{CANVAS_WIDTH}}" height="{{CANVAS_HEIGHT}}"></canvas>
+        </div>
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        const challengeData = {{CHALLENGE_DATA}};
+        challengeData.user_id = challengeData.user_id || 'anonymous';
+        const canvas = document.getElementById('captcha-canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        let objectPos = { x: challengeData.object_position.x, y: challengeData.object_position.y };
+        
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#e3f2fd');
+            gradient.addColorStop(1, '#bbdefb');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const size = Math.random() * 10 + 5;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = 'rgba(244, 67, 54, 0.4)';
+            ctx.fillRect(
+                challengeData.target_position.x, 
+                challengeData.target_position.y, 
+                challengeData.target_size.width, 
+                challengeData.target_size.height
+            );
+            ctx.strokeStyle = '#f44336';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(
+                challengeData.target_position.x, 
+                challengeData.target_position.y, 
+                challengeData.target_size.width, 
+                challengeData.target_size.height
+            );
+            
+            ctx.fillStyle = '#f44336';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('ЦЕЛЬ', 
+                challengeData.target_position.x + challengeData.target_size.width / 2,
+                challengeData.target_position.y + challengeData.target_size.height / 2 + 4
+            );
+            
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 5;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            ctx.fillStyle = '#2196F3';
+            ctx.fillRect(objectPos.x, objectPos.y, challengeData.object_size.width, challengeData.object_size.height);
+            ctx.strokeStyle = '#1976D2';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(objectPos.x, objectPos.y, challengeData.object_size.width, challengeData.object_size.height);
+            
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#1976D2';
+            ctx.lineWidth = 2;
+            
+            const innerSize = Math.min(challengeData.object_size.width, challengeData.object_size.height) * 0.6;
+            const innerX = objectPos.x + (challengeData.object_size.width - innerSize) / 2;
+            const innerY = objectPos.y + (challengeData.object_size.height - innerSize) / 2;
+            
+            ctx.fillRect(innerX, innerY, innerSize, innerSize);
+            ctx.strokeRect(innerX, innerY, innerSize, innerSize);
+            
+            ctx.strokeStyle = '#1976D2';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(innerX + innerSize * 0.3, innerY + innerSize * 0.3);
+            ctx.lineTo(innerX + innerSize * 0.7, innerY + innerSize * 0.7);
+            ctx.moveTo(innerX + innerSize * 0.7, innerY + innerSize * 0.3);
+            ctx.lineTo(innerX + innerSize * 0.3, innerY + innerSize * 0.7);
+            ctx.stroke();
+        }
+        
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            if (x >= objectPos.x && x <= objectPos.x + challengeData.object_size.width &&
+                y >= objectPos.y && y <= objectPos.y + challengeData.object_size.height) {
+                isDragging = true;
+                dragOffset.x = x - objectPos.x;
+                dragOffset.y = y - objectPos.y;
+                canvas.style.cursor = 'grabbing';
+                
+                const binaryData = packClickEvent(x, y, Date.now());
+                if (binaryData) {
+                    sendEventToServer('click_event', binaryData);
+                }
+            }
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left - dragOffset.x;
+                const y = e.clientY - rect.top - dragOffset.y;
+                
+                objectPos.x = Math.max(0, Math.min(x, canvas.width - challengeData.object_size.width));
+                objectPos.y = Math.max(0, Math.min(y, canvas.height - challengeData.object_size.height));
+                
+                render();
+            }
+        });
+        
+        canvas.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                isDragging = false;
+                canvas.style.cursor = 'move';
+                checkAnswer();
+            }
+        });
+        
+        function checkAnswer() {
+            const targetCenterX = challengeData.target_position.x + challengeData.target_size.width / 2;
+            const targetCenterY = challengeData.target_position.y + challengeData.target_size.height / 2;
+            const objectCenterX = objectPos.x + challengeData.object_size.width / 2;
+            const objectCenterY = objectPos.y + challengeData.object_size.height / 2;
+            
+            const distance = Math.sqrt(
+                Math.pow(objectCenterX - targetCenterX, 2) + 
+                Math.pow(objectCenterY - targetCenterY, 2)
+            );
+            
+            if (distance <= challengeData.tolerance) {
+                status.textContent = 'Успешно! Капча пройдена.';
+                status.className = 'status success';
+                
+                sendResult({ x: objectCenterX, y: objectCenterY });
+            } else {
+                status.textContent = 'Попробуйте еще раз.';
+                status.className = 'status error';
+            }
+        }
+        
+        function sendResult(position) {
+            window.top.postMessage({
+                type: 'captcha:sendData',
+                data: JSON.stringify({
+                    type: 'drag_drop_result',
+                    position: position,
+                    challenge_id: '{{CHALLENGE_ID}}'
+                })
+            }, '*');
+        }
+
+        function packClickEvent(x, y, timestamp) {
+            if (x < 0 || x > 8191 || y < 0 || y > 8191) return null;
+            
+            const packed = (BigInt(x) << 51n) | (BigInt(y) << 38n) | (BigInt(timestamp) & 0x3FFFFFFFFFn);
+            
+            const result = new Uint8Array(8);
+            for (let i = 0; i < 8; i++) {
+                result[7 - i] = Number((packed >> BigInt(i * 8)) & 0xFFn);
+            }
+            
+            return result;
+        }
+
+        function sendEventToServer(eventType, data) {
+            window.top.postMessage({
+                type: 'captcha:sendData',
+                data: {
+                    eventType: eventType,
+                    challengeId: challengeData.challenge_id || 'unknown',
+                    userId: challengeData.user_id || 'anonymous',
+                    data: data
+                }
+            }, '*');
+        }
+        
+        window.addEventListener('message', (e) => {
+            if (e.data?.type === 'captcha:serverData') {
+                try {
+                    const data = JSON.parse(e.data.data);
+                    console.log('Получены данные от сервера:', data);
+                } catch (err) {
+                    console.error('Ошибка парсинга данных от сервера:', err);
+                }
+            }
+        });
+        
+        render();
+    </script>
+</body>
+</html>

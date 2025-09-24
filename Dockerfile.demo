@@ -1,0 +1,49 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build demo binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o demo ./cmd/demo
+
+# Final stage
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates curl tzdata
+
+# Create app directory
+WORKDIR /app
+
+# Copy binary from builder stage
+COPY --from=builder /app/demo .
+
+# Copy templates and static files
+COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/backgrounds ./backgrounds
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Expose port
+EXPOSE 8082
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8082/health || exit 1
+
+# Run demo
+CMD ["./demo"]

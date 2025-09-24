@@ -1,0 +1,80 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+README.md
+DEMO_README.md
+
+# Logs
+logs/
+*.log
+
+# Build artifacts
+captcha-service
+balancer
+balancer-proxy
+demo
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+*_test.go.bak
+test/
+tests/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage files
+*.out
+coverage.html
+
+# Benchmark files
+benchmark_*.go
+*_benchmark.go
+
+# Scripts (except Docker scripts)
+run_demo.sh
+stop_demo.sh
+benchmark_performance_test.go
+high_load_test.go
+
+# Docker files (except the ones we need)
+docker-compose.override.yml
+.dockerignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node modules (if any)
+node_modules/
+
+# Python files (if any)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/

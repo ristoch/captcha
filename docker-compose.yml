@@ -1,0 +1,221 @@
+version: '3.8'
+
+services:
+  # Balancer - центральный балансировщик нагрузки
+  balancer:
+    build:
+      context: .
+      dockerfile: Dockerfile.balancer
+    container_name: captcha-balancer
+    ports:
+      - "8080:8080"  # HTTP health check
+      - "9090:9090"  # gRPC
+    environment:
+      - BALANCER_PORT=9090
+      - PORT=9090
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    networks:
+      - captcha-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Captcha Service - экземпляр 1
+  captcha-service-1:
+    build: .
+    container_name: captcha-service-1
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - HOST=captcha-service-1
+      - BALANCER_ADDRESS=balancer:9090
+      - CHALLENGE_TYPE=slider-puzzle
+      - DEFAULT_COMPLEXITY=50
+      - COMPLEXITY_LOW=30
+      - COMPLEXITY_MEDIUM=70
+      - COMPLEXITY_HIGH=100
+      - PUZZLE_SIZE_LOW=80
+      - PUZZLE_SIZE_MEDIUM=60
+      - PUZZLE_SIZE_HIGH=40
+      - TOLERANCE_LOW=15
+      - TOLERANCE_MEDIUM=8
+      - TOLERANCE_HIGH=4
+      - EXPIRATION_TIME_LOW=60
+      - EXPIRATION_TIME_MEDIUM=120
+      - EXPIRATION_TIME_HIGH=180
+      - MIN_TIME_MS=200
+      - MAX_TIME_MS=1000
+      - MAX_ATTEMPTS=3
+      - MAX_TIMEOUT_ATTEMPTS=2
+      - BLOCK_DURATION_MINUTES=2
+      - MIN_OVERLAP_PCT=70
+      - LOG_LEVEL=info
+      - CLEANUP_INTERVAL=10
+    depends_on:
+      balancer:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - captcha-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Captcha Service - экземпляр 2
+  captcha-service-2:
+    build: .
+    container_name: captcha-service-2
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - HOST=captcha-service-2
+      - BALANCER_ADDRESS=balancer:9090
+      - CHALLENGE_TYPE=slider-puzzle
+      - DEFAULT_COMPLEXITY=50
+      - COMPLEXITY_LOW=30
+      - COMPLEXITY_MEDIUM=70
+      - COMPLEXITY_HIGH=100
+      - PUZZLE_SIZE_LOW=80
+      - PUZZLE_SIZE_MEDIUM=60
+      - PUZZLE_SIZE_HIGH=40
+      - TOLERANCE_LOW=15
+      - TOLERANCE_MEDIUM=8
+      - TOLERANCE_HIGH=4
+      - EXPIRATION_TIME_LOW=60
+      - EXPIRATION_TIME_MEDIUM=120
+      - EXPIRATION_TIME_HIGH=180
+      - MIN_TIME_MS=200
+      - MAX_TIME_MS=1000
+      - MAX_ATTEMPTS=3
+      - MAX_TIMEOUT_ATTEMPTS=2
+      - BLOCK_DURATION_MINUTES=2
+      - MIN_OVERLAP_PCT=70
+      - LOG_LEVEL=info
+      - CLEANUP_INTERVAL=10
+    depends_on:
+      balancer:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - captcha-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Captcha Service - экземпляр 3
+  captcha-service-3:
+    build: .
+    container_name: captcha-service-3
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - HOST=captcha-service-3
+      - BALANCER_ADDRESS=balancer:9090
+      - CHALLENGE_TYPE=slider-puzzle
+      - DEFAULT_COMPLEXITY=50
+      - COMPLEXITY_LOW=30
+      - COMPLEXITY_MEDIUM=70
+      - COMPLEXITY_HIGH=100
+      - PUZZLE_SIZE_LOW=80
+      - PUZZLE_SIZE_MEDIUM=60
+      - PUZZLE_SIZE_HIGH=40
+      - TOLERANCE_LOW=15
+      - TOLERANCE_MEDIUM=8
+      - TOLERANCE_HIGH=4
+      - EXPIRATION_TIME_LOW=60
+      - EXPIRATION_TIME_MEDIUM=120
+      - EXPIRATION_TIME_HIGH=180
+      - MIN_TIME_MS=200
+      - MAX_TIME_MS=1000
+      - MAX_ATTEMPTS=3
+      - MAX_TIMEOUT_ATTEMPTS=2
+      - BLOCK_DURATION_MINUTES=2
+      - MIN_OVERLAP_PCT=70
+      - LOG_LEVEL=info
+      - CLEANUP_INTERVAL=10
+    depends_on:
+      balancer:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - captcha-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Balancer Proxy - HTTP API и WebSocket
+  balancer-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.balancer-proxy
+    container_name: captcha-balancer-proxy
+    ports:
+      - "8081:8081"
+    environment:
+      - BALANCER_ADDRESS=balancer:9090
+      - PORT=8081
+      - LOG_LEVEL=info
+    depends_on:
+      - balancer
+      - captcha-service-1
+      - captcha-service-2
+      - captcha-service-3
+    restart: unless-stopped
+    networks:
+      - captcha-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # Demo - веб-интерфейс для тестирования
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
+    container_name: captcha-demo
+    ports:
+      - "8082:8082"
+    environment:
+      - CAPTCHA_SERVICE_URL=http://balancer-proxy:8081
+      - PORT=8082
+      - LOG_LEVEL=info
+    depends_on:
+      balancer-proxy:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - captcha-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  captcha-network:
+    driver: bridge
+    name: captcha-network
+
+volumes:
+  captcha-logs:
+    name: captcha-logs

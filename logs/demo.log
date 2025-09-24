@@ -1,0 +1,16 @@
+2025/09/24 23:46:53 Demo server started on http://localhost:8082
+2025/09/24 23:46:53 Available endpoints:
+2025/09/24 23:46:53   - http://localhost:8082/demo - Main demo page
+2025/09/24 23:46:53   - http://localhost:8082/performance - Performance test
+2025/09/24 23:46:53   - http://localhost:8082/health - Health check
+2025/09/24 23:46:53   - ws://localhost:8082/ws - WebSocket endpoint
+2025/09/24 23:46:53 Captcha service URL: http://localhost:8081
+{"level":"info","ts":1758746902.615812,"caller":"logger/logger.go:46","msg":"WebSocket connection established","userID":"20250924230209-gggooooo","sessionID":"20250924230209-gggooooo"}
+{"level":"info","ts":1758746904.64548,"caller":"logger/logger.go:46","msg":"Creating challenge via WebSocket","userID":"20250924230209-gggooooo","challengeID":"challenge-20250924234824-gggggggo","complexity":50}
+{"level":"info","ts":1758746911.248586,"caller":"logger/logger.go:46","msg":"Validating challenge via WebSocket","userID":"20250924230209-gggooooo","challengeID":""}
+{"level":"info","ts":1758746911.667785,"caller":"logger/logger.go:46","msg":"Validating challenge via WebSocket","userID":"20250924230209-gggooooo","challengeID":""}
+{"level":"info","ts":1758746911.877621,"caller":"logger/logger.go:46","msg":"Validating challenge via WebSocket","userID":"20250924230209-gggooooo","challengeID":""}
+{"level":"info","ts":1758746911.8778749,"caller":"logger/logger.go:46","msg":"User blocked","userID":"20250924230209-gggooooo","duration":120}
+{"level":"error","ts":1758748004.3335848,"caller":"logger/logger.go:50","msg":"Failed to read message","error":"websocket: close 1001 (going away)","stacktrace":"captcha-service/pkg/logger.Error\n\t/Users/romanistocnikov/GolandProjects/captcha/pkg/logger/logger.go:50\ncaptcha-service/internal/transport/websocket.(*DemoWebSocketHandler).HandleWebSocket\n\t/Users/romanistocnikov/GolandProjects/captcha/internal/transport/websocket/demo_handler.go:151\nnet/http.HandlerFunc.ServeHTTP\n\t/Users/romanistocnikov/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.7.darwin-arm64/src/net/http/server.go:2294\nnet/http.(*ServeMux).ServeHTTP\n\t/Users/romanistocnikov/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.7.darwin-arm64/src/net/http/server.go:2822\nnet/http.serverHandler.ServeHTTP\n\t/Users/romanistocnikov/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.7.darwin-arm64/src/net/http/server.go:3301\nnet/http.(*conn).serve\n\t/Users/romanistocnikov/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.24.7.darwin-arm64/src/net/http/server.go:2102"}
+2025/09/25 00:46:01 Shutting down demo server...
+2025/09/25 00:46:01 http: Server closed

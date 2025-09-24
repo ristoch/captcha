@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package balancer.v1;
+option go_package = "captcha-service/gen/proto/balancer/v1";
+
+import "google/protobuf/timestamp.proto";
+
+service BalancerService {
+  rpc RegisterInstance(stream RegisterInstanceRequest) returns (stream RegisterInstanceResponse) {}
+  rpc CheckUserBlocked(CheckUserBlockedRequest) returns (CheckUserBlockedResponse) {}
+  rpc BlockUser(BlockUserRequest) returns (BlockUserResponse) {}
+  rpc GetInstances(GetInstancesRequest) returns (GetInstancesResponse) {}
+}
+
+message RegisterInstanceRequest {
+  enum EventType {
+    UNKNOWN = 0;
+    READY = 1;
+    NOT_READY = 2;
+    STOPPED = 3;
+  }
+
+  EventType event_type = 1;
+  string instance_id = 2;
+  string challenge_type = 3;
+  string host = 4;
+  int32 port_number = 5;
+  int64 timestamp = 6;
+}
+
+message RegisterInstanceResponse {
+  enum Status {
+    SUCCESS = 0;
+    ERROR = 1;
+  }
+
+  Status status = 1;
+  string message = 3;
+}
+
+message CheckUserBlockedRequest {
+  string user_id = 1;
+}
+
+message CheckUserBlockedResponse {
+  bool is_blocked = 1;
+  string reason = 2;
+  int64 blocked_until = 3;
+}
+
+message BlockUserRequest {
+  string user_id = 1;
+  int32 duration_minutes = 2;
+  string reason = 3;
+}
+
+message BlockUserResponse {
+  enum Status {
+    SUCCESS = 0;
+    ERROR = 1;
+  }
+
+  Status status = 1;
+  string message = 2;
+}
+
+message GetInstancesRequest {
+  // Empty request
+}
+
+message InstanceInfo {
+  string instance_id = 1;
+  string challenge_type = 2;
+  string host = 3;
+  int32 port_number = 4;
+  string status = 5;
+  int64 last_seen = 6;
+}
+
+message GetInstancesResponse {
+  repeated InstanceInfo instances = 1;
+  int32 count = 2;
+}
+

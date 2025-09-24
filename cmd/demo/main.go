@@ -1,0 +1,88 @@
+package main
+
+import (
+	"context"
+	"html/template"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"captcha-service/internal/infrastructure/cache"
+	"captcha-service/internal/infrastructure/config"
+	"captcha-service/internal/infrastructure/repository"
+	httpTransport "captcha-service/internal/transport/http"
+	wsTransport "captcha-service/internal/transport/websocket"
+	"captcha-service/internal/usecase"
+)
+
+func main() {
+	cfg, err := config.LoadDemoConfig()
+	if err != nil {
+		log.Fatalf("Failed to load demo config: %v", err)
+	}
+
+	sessionRepo := repository.NewInMemorySessionRepository()
+	_ = cache.NewSessionCache(5000) // 5k max sessions (for future use)
+	demoUsecase := usecase.NewDemoUsecase(sessionRepo, cfg)
+
+	// Create a simple template
+	tmpl := template.New("demo")
+
+	demoHandler := httpTransport.NewDemoHandler(demoUsecase, tmpl)
+	wsHandler := wsTransport.NewDemoWebSocketHandler(cfg, sessionRepo)
+
+	mux := http.NewServeMux()
+
+	mux.Handle("/backgrounds/", http.StripPrefix("/backgrounds/", http.FileServer(http.Dir("./backgrounds/"))))
+	mux.Handle("/templates/", http.StripPrefix("/templates/", http.FileServer(http.Dir("./templates/"))))
+
+	mux.HandleFunc("/ws", wsHandler.HandleWebSocket)
+
+	mux.HandleFunc("/health", demoHandler.HandleHealth)
+	mux.HandleFunc("/demo", demoHandler.HandleDemo)
+	mux.HandleFunc("/performance", func(w http.ResponseWriter, r *http.Request) {
+		// Performance test placeholder
+		http.Error(w, "Performance test not implemented", http.StatusNotImplemented)
+	})
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/demo", http.StatusFound)
+	})
+
+	server := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: mux,
+	}
+
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+
+		log.Println("Shutting down demo server...")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		server.Shutdown(ctx)
+	}()
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			sessionRepo.CleanupExpired()
+		}
+	}()
+
+	log.Printf("Demo server started on http://localhost:%s", cfg.Port)
+	log.Printf("Available endpoints:")
+	log.Printf("  - http://localhost:%s/demo - Main demo page", cfg.Port)
+	log.Printf("  - http://localhost:%s/performance - Performance test", cfg.Port)
+	log.Printf("  - http://localhost:%s/health - Health check", cfg.Port)
+	log.Printf("  - ws://localhost:%s/ws - WebSocket endpoint", cfg.Port)
+	log.Printf("Captcha service URL: %s", cfg.CaptchaServiceURL)
+
+	log.Fatal(server.ListenAndServe())
+}
