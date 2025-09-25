@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"captcha-service/internal/domain/entity"
-	"captcha-service/internal/domain/interfaces"
 )
 
 type MemoryOptimizedRepository struct {
@@ -18,7 +17,7 @@ type MemoryOptimizedRepository struct {
 	stopChan      chan struct{}
 }
 
-func NewMemoryOptimizedRepository(maxChallenges int) interfaces.ChallengeRepository {
+func NewMemoryOptimizedRepository(maxChallenges int) *MemoryOptimizedRepository {
 	repo := &MemoryOptimizedRepository{
 		challenges:    make(map[string]*entity.Challenge),
 		maxChallenges: maxChallenges,

@@ -12,6 +12,7 @@ import (
 	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/infrastructure/balancer"
+	"captcha-service/internal/infrastructure/cache"
 	"captcha-service/internal/infrastructure/persistence"
 	"captcha-service/internal/infrastructure/port"
 	"captcha-service/internal/infrastructure/template"
@@ -69,7 +70,6 @@ func main() {
 	}
 
 	balancerClient := balancer.NewClient(entityConfig)
-	// Обновляем порт в клиенте балансера
 	balancerClient.SetPort(int32(availablePort))
 
 	ctx := context.Background()
@@ -78,7 +78,18 @@ func main() {
 	}
 
 	grpcHandlers := grpc.NewHandlers(captchaService)
-	httpHandlers := http.NewHandlers(captchaService)
+
+	sessionCache := cache.NewSessionCache(1000)
+
+	serviceConfig := &config.ServiceConfig{
+		MaxAttempts:      entityConfig.MaxAttempts,
+		BlockDurationMin: entityConfig.BlockDurationMin,
+		CleanupInterval:  entityConfig.CleanupInterval,
+		StaleThreshold:   entityConfig.StaleThreshold,
+	}
+	globalBlocker := service.NewGlobalUserBlocker(serviceConfig)
+
+	httpHandlers := http.NewHandlersWithMemoryMonitor(captchaService, repo, sessionCache, globalBlocker)
 
 	gatewayServer := grpc_gateway.NewServer(grpcHandlers, httpHandlers, availablePort)
 

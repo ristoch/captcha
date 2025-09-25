@@ -4,8 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"runtime"
+	"sync/atomic"
+	"time"
 
 	"captcha-service/internal/domain/entity"
+	"captcha-service/internal/infrastructure/cache"
+	"captcha-service/internal/infrastructure/persistence"
+	"captcha-service/internal/service"
 	"captcha-service/pkg/logger"
 
 	"github.com/gorilla/websocket"
@@ -20,31 +26,58 @@ type CaptchaService interface {
 
 type Handlers struct {
 	captchaService CaptchaService
+	memoryMonitor  *MemoryMonitor
+
+	requestsTotal    int64
+	challengesTotal  int64
+	validationsTotal int64
+	errorsTotal      int64
+	startTime        time.Time
 }
 
 func NewHandlers(captchaService CaptchaService) *Handlers {
 	return &Handlers{
 		captchaService: captchaService,
+		memoryMonitor:  nil,
+		startTime:      time.Now(),
+	}
+}
+
+func NewHandlersWithMemoryMonitor(
+	captchaService CaptchaService,
+	challengeRepo *persistence.MemoryOptimizedRepository,
+	sessionCache *cache.SessionCache,
+	globalBlocker *service.GlobalUserBlocker,
+) *Handlers {
+	return &Handlers{
+		captchaService: captchaService,
+		memoryMonitor:  NewMemoryMonitor(challengeRepo, sessionCache, globalBlocker),
+		startTime:      time.Now(),
 	}
 }
 
 func (h *Handlers) HandleChallengeRequest(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&h.requestsTotal, 1)
+
 	var req struct {
 		ChallengeType string `json:"challenge_type"`
 		Complexity    int32  `json:"complexity"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		atomic.AddInt64(&h.errorsTotal, 1)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
 	challenge, err := h.captchaService.CreateChallenge(r.Context(), req.ChallengeType, req.Complexity, "demo_user")
 	if err != nil {
+		atomic.AddInt64(&h.errorsTotal, 1)
 		logger.Error("Failed to create challenge", zap.Error(err))
 		http.Error(w, "Failed to create challenge", http.StatusInternalServerError)
 		return
 	}
 
+	atomic.AddInt64(&h.challengesTotal, 1)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(challenge)
 }
@@ -83,22 +116,27 @@ func (h *Handlers) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleValidateRequest(w http.ResponseWriter, r *http.Request) {
+	atomic.AddInt64(&h.requestsTotal, 1)
+
 	var req struct {
 		ChallengeID string      `json:"challenge_id"`
 		Answer      interface{} `json:"answer"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		atomic.AddInt64(&h.errorsTotal, 1)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
 	valid, confidence, err := h.captchaService.ValidateChallenge(r.Context(), req.ChallengeID, req.Answer)
 	if err != nil {
+		atomic.AddInt64(&h.errorsTotal, 1)
 		logger.Error("Failed to validate challenge", zap.Error(err))
 		http.Error(w, "Failed to validate challenge", http.StatusInternalServerError)
 		return
 	}
 
+	atomic.AddInt64(&h.validationsTotal, 1)
 	response := map[string]interface{}{
 		"valid":      valid,
 		"confidence": confidence,
@@ -109,10 +147,24 @@ func (h *Handlers) HandleValidateRequest(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *Handlers) HandleMemoryStats(w http.ResponseWriter, r *http.Request) {
-	// Простая заглушка для memory stats
+	if h.memoryMonitor != nil {
+		h.memoryMonitor.HandleMemoryStats(w, r)
+		return
+	}
+
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
 	stats := map[string]interface{}{
-		"memory_usage": "N/A",
-		"status":       "healthy",
+		"timestamp": time.Now().Unix(),
+		"system": map[string]interface{}{
+			"alloc_mb":        memStats.Alloc / 1024 / 1024,
+			"total_alloc_mb":  memStats.TotalAlloc / 1024 / 1024,
+			"sys_mb":          memStats.Sys / 1024 / 1024,
+			"num_gc":          memStats.NumGC,
+			"gc_cpu_fraction": memStats.GCCPUFraction,
+		},
+		"status": "healthy",
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -120,10 +172,23 @@ func (h *Handlers) HandleMemoryStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) HandleStats(w http.ResponseWriter, r *http.Request) {
-	// Простая заглушка для stats
+	uptime := time.Since(h.startTime)
+
 	stats := map[string]interface{}{
-		"requests_total": 0,
-		"status":         "healthy",
+		"timestamp":         time.Now().Unix(),
+		"uptime_seconds":    uptime.Seconds(),
+		"requests_total":    atomic.LoadInt64(&h.requestsTotal),
+		"challenges_total":  atomic.LoadInt64(&h.challengesTotal),
+		"validations_total": atomic.LoadInt64(&h.validationsTotal),
+		"errors_total":      atomic.LoadInt64(&h.errorsTotal),
+		"status":            "healthy",
+		"uptime_human":      uptime.String(),
+	}
+
+	if uptime.Seconds() > 0 {
+		stats["rps"] = float64(atomic.LoadInt64(&h.requestsTotal)) / uptime.Seconds()
+	} else {
+		stats["rps"] = 0.0
 	}
 
 	w.Header().Set("Content-Type", "application/json")
