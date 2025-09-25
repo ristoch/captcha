@@ -87,7 +87,6 @@ func main() {
 	<-sigChan
 	logger.Info("Shutting down balancer server...")
 
-	// Останавливаем balancer service
 	balancerService.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
