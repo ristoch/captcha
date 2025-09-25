@@ -229,8 +229,6 @@ curl http://localhost:8080/api/services    # Все зарегистрирова
 - `GET /api/stats` - общая статистика
 - `POST /api/services/add` - добавить сервис
 - `DELETE /api/services/remove` - удалить сервис
-- `POST /api/challenge` - создать капчу
-- `POST /api/validate` - проверить решение
 - `WebSocket /ws` - события в реальном времени
 
 **Балансер (порт 8080):**
@@ -275,20 +273,6 @@ curl http://localhost:8080/api/services    # Все зарегистрирова
 
 ## 📝 API
 
-### Создание капчи
-```bash
-curl -X POST http://localhost:8081/api/challenge \
-  -H "Content-Type: application/json" \
-  -d '{"complexity": 50, "user_id": "test-user"}'
-```
-
-### Проверка решения
-```bash
-curl -X POST http://localhost:8081/api/validate \
-  -H "Content-Type: application/json" \
-  -d '{"challenge_id": "slider_123", "answer": {"x": 100, "y": 50}}'
-```
-
 ### Мониторинг памяти
 ```bash
 curl http://localhost:8081/api/memory
@@ -305,11 +289,6 @@ curl http://localhost:8081/api/stats
 curl http://localhost:38000/health
 curl http://localhost:38001/health
 curl http://localhost:38002/health
-
-# Создание капчи через gRPC-Gateway
-curl -X POST http://localhost:38000/api/challenge \
-  -H "Content-Type: application/json" \
-  -d '{"complexity": 50, "user_id": "test-user"}'
 
 # Проверка всех зарегистрированных сервисов
 curl http://localhost:8080/api/services | jq .
