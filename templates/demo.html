@@ -219,6 +219,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('Demo page loaded, initializing...');
             document.getElementById('generated-time').textContent = new Date().toLocaleString();
             connectWebSocket();
         });
@@ -227,11 +228,13 @@
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws`;
+            console.log('Connecting to WebSocket:', wsUrl);
             
             try {
                 ws = new WebSocket(wsUrl);
                 
                 ws.onopen = function() {
+                    console.log('WebSocket connected successfully');
                     log('WebSocket connected', 'success');
                     updateWSStatus('✅');
                     showStatus('Connected to WebSocket', 'success');
@@ -239,20 +242,24 @@
                 
                 ws.onmessage = function(event) {
                     try {
+                        console.log('WebSocket message received:', event.data);
                         const data = JSON.parse(event.data);
                         handleWebSocketMessage(data);
                     } catch (e) {
+                        console.error('Failed to parse WebSocket message:', e);
                         log('Failed to parse WebSocket message: ' + e.message, 'error');
                     }
                 };
                 
                 ws.onclose = function() {
+                    console.log('WebSocket disconnected');
                     log('WebSocket disconnected', 'warning');
                     updateWSStatus('❌');
                     showStatus('WebSocket disconnected', 'error');
                 };
                 
                 ws.onerror = function(error) {
+                    console.error('WebSocket error:', error);
                     log('WebSocket error: ' + error, 'error');
                     updateWSStatus('❌');
                     showStatus('WebSocket error', 'error');
@@ -271,12 +278,15 @@
         }
 
         function createChallengeViaWebSocket() {
+            console.log('Creating challenge via WebSocket...');
             if (!ws || ws.readyState !== WebSocket.OPEN) {
+                console.error('WebSocket not connected');
                 showStatus('WebSocket not connected', 'error');
                 return;
             }
             
             const complexity = getComplexityFromURL();
+            console.log('Sending challenge request with complexity:', complexity);
             sendWebSocketMessage('challenge_request', {
                 challenge_type: 'slider-puzzle',
                 complexity: complexity
@@ -310,31 +320,29 @@
             eventCount++;
             updateEventCount();
             
+            console.log('Handling WebSocket message:', data);
             log(`Received: ${data.type} (${JSON.stringify(data)})`, 'info');
             
             switch (data.type) {
                 case 'connected':
+                    console.log('WebSocket connected for user:', data.data.user_id);
                     showStatus('Connected to WebSocket', 'success');
                     log('Connected to WebSocket for user: ' + data.data.user_id, 'success');
                     break;
                     
-                case 'user_blocked':
-                    showStatus('User is blocked: ' + data.data.message, 'error');
-                    log('User blocked: ' + data.data.message, 'error');
-                    // Disable challenge creation
-                    document.getElementById('challenge-container').innerHTML = 
-                        '<div class="error">User is blocked due to too many failed attempts. Please try again later.</div>';
-                    break;
-                    
-                case 'challenge_created':
+                case 'challenge_response':
+                    console.log('Challenge response received:', data);
                     showStatus('Challenge created successfully', 'success');
-                    document.getElementById('challenge-container').innerHTML = data.data.html;
-                    currentChallengeId = data.data.challenge_id;
-                    log('Challenge created: ' + currentChallengeId, 'success');
+                    if (data.data && data.data.html) {
+                        document.getElementById('captcha-iframe').srcdoc = data.data.html;
+                        currentChallengeId = data.challenge_id;
+                        log('Challenge created: ' + currentChallengeId, 'success');
+                    }
                     break;
                     
-                case 'validation_result':
-                    if (data.data.valid) {
+                case 'validation_response':
+                    console.log('Validation response received:', data);
+                    if (data.data && data.data.valid) {
                         successCount++;
                         updateSuccessRate();
                         showStatus('Challenge solved successfully!', 'success');
@@ -345,21 +353,49 @@
                     }
                     break;
                     
-                case 'challenge_completed':
-                    successCount++;
-                    updateSuccessRate();
-                    showStatus('Challenge completed!', 'success');
+                case 'error':
+                    console.error('WebSocket error:', data.data.error);
+                    showStatus('Error: ' + data.data.error, 'error');
+                    log('Error: ' + data.data.error, 'error');
                     break;
-                case 'challenge_failed':
-                    showStatus('Challenge failed', 'error');
+                    
+                case 'user_blocked':
+                    console.log('User blocked:', data.data.reason);
+                    showStatus('User is blocked: ' + data.data.reason, 'error');
+                    log('User blocked: ' + data.data.reason, 'error');
+                    
+                    // Disable all captcha interactions
+                    const captchaElements = document.querySelectorAll('canvas, input[type="range"], .piece');
+                    captchaElements.forEach(el => {
+                        el.style.pointerEvents = 'none';
+                        el.style.opacity = '0.5';
+                    });
+                    
+                    // Show blocking overlay
+                    showBlockedMessage(data.data.reason);
                     break;
-                case 'userBlocked':
-                    showStatus('User blocked due to too many attempts', 'error');
+                    
+                case 'captcha_event_ack':
+                    console.log('Captcha event acknowledged:', data.data.message);
+                    log('Captcha event acknowledged: ' + data.data.message, 'success');
                     break;
-                case 'newChallenge':
-                    showStatus('New challenge loaded', 'info');
+                    
+                case 'new_challenge_data':
+                    console.log('New challenge data received:', data.data);
+                    log('New challenge data received', 'info');
+                    
+                    // Send new challenge data to iframe
+                    const iframe = document.getElementById('captcha-iframe');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'new_challenge_data',
+                            ...data.data
+                        }, '*');
+                    }
                     break;
+                    
                 default:
+                    console.log('Unknown message type:', data.type, data);
                     log(`Unknown message type: ${data.type}`, 'warning');
             }
         }
@@ -373,6 +409,7 @@
                     data: data
                 };
                 
+                console.log('Sending WebSocket message:', message);
                 const startTime = performance.now();
                 ws.send(JSON.stringify(message));
                 
@@ -385,6 +422,7 @@
                 
                 log(`Sent: ${type}`, 'info');
             } else {
+                console.error('WebSocket not connected, cannot send message');
                 log('WebSocket not connected', 'error');
             }
         }
@@ -469,8 +507,26 @@
         }
 
         function log(message, type = 'info') {
-            const logEntries = document.getElementById('log-entries');
+            // Log to browser console
             const timestamp = new Date().toLocaleTimeString();
+            const consoleMessage = `[${timestamp}] ${message}`;
+            
+            switch (type) {
+                case 'error':
+                    console.error(consoleMessage);
+                    break;
+                case 'warning':
+                    console.warn(consoleMessage);
+                    break;
+                case 'success':
+                    console.log('%c' + consoleMessage, 'color: green; font-weight: bold;');
+                    break;
+                default:
+                    console.log(consoleMessage);
+            }
+            
+            // Also add to DOM log
+            const logEntries = document.getElementById('log-entries');
             const logEntry = document.createElement('div');
             logEntry.className = 'log-entry log-' + type;
             logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
@@ -488,9 +544,51 @@
             updateSuccessRate();
         }
 
+        function showBlockedMessage(message) {
+            console.error('User blocked:', message);
+            
+            // Create blocking overlay
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 10000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-family: system-ui, -apple-system, Arial, sans-serif;
+            `;
+            
+            const blockDialog = document.createElement('div');
+            blockDialog.style.cssText = `
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                text-align: center;
+                max-width: 400px;
+                margin: 20px;
+            `;
+            
+            blockDialog.innerHTML = `
+                <div style="font-size: 24px; color: #d32f2f; margin-bottom: 15px;">🚫</div>
+                <h2 style="color: #d32f2f; margin: 0 0 15px 0; font-size: 20px;">Доступ заблокирован</h2>
+                <p style="color: #666; margin: 0 0 20px 0; line-height: 1.4;">${message}</p>
+                <p style="color: #999; font-size: 14px; margin: 0;">Попробуйте снова через несколько минут</p>
+            `;
+            
+            overlay.appendChild(blockDialog);
+            document.body.appendChild(overlay);
+        }
+
         // Listen for messages from iframe
         window.addEventListener('message', function(event) {
             if (event.data && event.data.type === 'captcha:sendData') {
+                console.log('Received message from iframe:', event.data);
                 log(`Iframe message: ${event.data.eventType}`, 'info');
                 
                 // Handle different event types
@@ -514,7 +612,12 @@
                         break;
                 }
                 
-                sendWebSocketMessage('captcha_event', event.data);
+                sendWebSocketMessage('captcha_event', {
+                    eventType: event.data.eventType,
+                    challengeId: event.data.challengeId,
+                    userId: event.data.userId,
+                    data: event.data.data
+                });
             }
         });
     </script>
