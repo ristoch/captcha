@@ -10,7 +10,7 @@
 
 ```bash
 # 1. Клонирование репозитория
-git clone <repository-url>
+git clone https://github.com/ristoch/captcha.git
 cd captcha
 
 # 2. Запуск всех сервисов одной командой
