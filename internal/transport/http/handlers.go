@@ -35,14 +35,6 @@ type Handlers struct {
 	startTime        time.Time
 }
 
-func NewHandlers(captchaService CaptchaService) *Handlers {
-	return &Handlers{
-		captchaService: captchaService,
-		memoryMonitor:  nil,
-		startTime:      time.Now(),
-	}
-}
-
 func NewHandlersWithMemoryMonitor(
 	captchaService CaptchaService,
 	challengeRepo *persistence.MemoryOptimizedRepository,

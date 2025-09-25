@@ -42,12 +42,10 @@ func main() {
 
 	templateEngine := template.NewTemplateEngineService("./templates")
 
-	entityConfig := cfg
-
 	registry := service.NewGeneratorRegistry()
-	registry.Register(entity.ChallengeTypeSliderPuzzle, service.NewSliderPuzzleGenerator(entityConfig, repo, templateEngine))
+	registry.Register(entity.ChallengeTypeSliderPuzzle, service.NewSliderPuzzleGenerator(cfg, repo, templateEngine))
 
-	captchaService := service.NewCaptchaService(repo, registry, nil, entityConfig)
+	captchaService := service.NewCaptchaService(repo, registry, nil, cfg)
 
 	// Используем порт из конфигурации, если задан
 	var availablePort int
@@ -69,7 +67,7 @@ func main() {
 		logger.Info("Found available port", zap.Int("port", availablePort))
 	}
 
-	balancerClient := balancer.NewClient(entityConfig)
+	balancerClient := balancer.NewClient(cfg)
 	balancerClient.SetPort(int32(availablePort))
 
 	ctx := context.Background()
@@ -79,13 +77,13 @@ func main() {
 
 	grpcHandlers := grpc.NewHandlers(captchaService)
 
-	sessionCache := cache.NewSessionCache(1000)
+	sessionCache := cache.NewSessionCache(int(cfg.MaxSessions))
 
 	serviceConfig := &config.ServiceConfig{
-		MaxAttempts:      entityConfig.MaxAttempts,
-		BlockDurationMin: entityConfig.BlockDurationMin,
-		CleanupInterval:  entityConfig.CleanupInterval,
-		StaleThreshold:   entityConfig.StaleThreshold,
+		MaxAttempts:      cfg.MaxAttempts,
+		BlockDurationMin: cfg.BlockDurationMin,
+		CleanupInterval:  cfg.CleanupInterval,
+		StaleThreshold:   cfg.StaleThreshold,
 	}
 	globalBlocker := service.NewGlobalUserBlocker(serviceConfig)
 

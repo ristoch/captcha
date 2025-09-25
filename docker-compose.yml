@@ -56,6 +56,8 @@ services:
       - MIN_OVERLAP_PCT=70
       - LOG_LEVEL=info
       - CLEANUP_INTERVAL=10
+      - MAX_CHALLENGES=10000
+      - MAX_SESSIONS=1000
     depends_on:
       balancer:
         condition: service_healthy
@@ -101,6 +103,8 @@ services:
       - MIN_OVERLAP_PCT=70
       - LOG_LEVEL=info
       - CLEANUP_INTERVAL=10
+      - MAX_CHALLENGES=10000
+      - MAX_SESSIONS=1000
     depends_on:
       balancer:
         condition: service_healthy
@@ -146,6 +150,8 @@ services:
       - MIN_OVERLAP_PCT=70
       - LOG_LEVEL=info
       - CLEANUP_INTERVAL=10
+      - MAX_CHALLENGES=10000
+      - MAX_SESSIONS=1000
     depends_on:
       balancer:
         condition: service_healthy

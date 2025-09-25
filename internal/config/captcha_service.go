@@ -42,6 +42,7 @@ type CaptchaConfig struct {
 	MaxPort int32 `env:"MAX_PORT" envDefault:"40000"`
 
 	MaxChallenges      int32  `env:"MAX_CHALLENGES" envDefault:"10000"`
+	MaxSessions        int32  `env:"MAX_SESSIONS" envDefault:"1000"`
 	ShutdownTimeoutSec int32  `env:"SHUTDOWN_TIMEOUT_SEC" envDefault:"30"`
 	BalancerAddr       string `env:"BALANCER_ADDR" envDefault:"localhost:9090"`
 
