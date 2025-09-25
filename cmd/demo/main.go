@@ -43,7 +43,7 @@ func main() {
 	sliderGenerator := service.NewSliderPuzzleGenerator(entityConfig, challengeRepo, nil)
 	registry.Register(entity.ChallengeTypeSliderPuzzle, sliderGenerator)
 
-	captchaService := service.NewCaptchaService(challengeRepo, registry, nil, entityConfig)
+	captchaService := service.NewCaptchaService(challengeRepo, registry, entityConfig)
 
 	tmpl := template.New("demo")
 

@@ -45,7 +45,7 @@ func main() {
 	registry := service.NewGeneratorRegistry()
 	registry.Register(entity.ChallengeTypeSliderPuzzle, service.NewSliderPuzzleGenerator(cfg, repo, templateEngine))
 
-	captchaService := service.NewCaptchaService(repo, registry, nil, cfg)
+	captchaService := service.NewCaptchaService(repo, registry, cfg)
 
 	// Используем порт из конфигурации, если задан
 	var availablePort int

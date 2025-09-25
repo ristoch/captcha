@@ -23,17 +23,15 @@ type WebSocketSender interface {
 type CaptchaService struct {
 	repo          ChallengeRepository
 	registry      *GeneratorRegistry
-	wsSender      WebSocketSender
 	config        *config.CaptchaConfig
 	userAttempts  *entity.UserAttempts
 	globalBlocker *GlobalUserBlocker
 }
 
-func NewCaptchaService(repo ChallengeRepository, registry *GeneratorRegistry, wsSender WebSocketSender, cfg *config.CaptchaConfig) *CaptchaService {
+func NewCaptchaService(repo ChallengeRepository, registry *GeneratorRegistry, cfg *config.CaptchaConfig) *CaptchaService {
 	return &CaptchaService{
 		repo:     repo,
 		registry: registry,
-		wsSender: wsSender,
 		config:   cfg,
 		userAttempts: entity.NewUserAttempts(&config.DemoConfig{
 			MaxAttempts:   cfg.MaxAttempts,
@@ -116,86 +114,4 @@ func (s *CaptchaService) ValidateChallenge(ctx context.Context, challengeID stri
 
 func (s *CaptchaService) GetChallenge(ctx context.Context, challengeID string) (*entity.Challenge, error) {
 	return s.repo.GetChallenge(ctx, challengeID)
-}
-
-func (s *CaptchaService) ProcessEvent(ctx context.Context, event *entity.WebSocketMessage) error {
-	logger.Debug("Processing WebSocket event",
-		zap.String("type", event.Type),
-		zap.String("user_id", event.UserID))
-
-	switch event.Type {
-	case entity.MessageTypeChallengeRequest:
-		return s.handleChallengeRequest(ctx, event)
-	case entity.MessageTypeCaptchaEvent:
-		return s.handleCaptchaEvent(ctx, event)
-	default:
-		logger.Warn("Unknown event type", zap.String("type", event.Type))
-		return nil
-	}
-}
-
-func (s *CaptchaService) handleChallengeRequest(ctx context.Context, event *entity.WebSocketMessage) error {
-	challenge, err := s.CreateChallenge(ctx, entity.ChallengeTypeSliderPuzzle, 50, event.UserID)
-	if err != nil {
-		return err
-	}
-
-	response := &entity.WebSocketMessage{
-		Type:   entity.MessageTypeChallengeCreated,
-		UserID: event.UserID,
-		Data: map[string]interface{}{
-			entity.FieldChallengeID: challenge.ID,
-			"html":                  challenge.HTML,
-		},
-	}
-
-	return s.wsSender.SendMessage(event.UserID, response)
-}
-
-func (s *CaptchaService) handleCaptchaEvent(ctx context.Context, event *entity.WebSocketMessage) error {
-	if event.Type == entity.MessageTypeChallengeCompleted {
-		return s.handleChallengeCompleted(ctx, event)
-	}
-	return nil
-}
-
-func (s *CaptchaService) handleChallengeCompleted(ctx context.Context, event *entity.WebSocketMessage) error {
-	challengeID, ok := event.Data[entity.FieldChallengeID].(string)
-	if !ok {
-		return entity.ErrChallengeNotFound
-	}
-	challenge, err := s.repo.GetChallenge(ctx, challengeID)
-	if err != nil {
-		return err
-	}
-
-	generator, exists := s.registry.Get(challenge.Type)
-	if !exists {
-		return entity.ErrChallengeNotFound
-	}
-
-	valid, _, err := generator.Validate(event.Data, challenge.Data)
-	if err != nil {
-		return err
-	}
-
-	if !valid {
-		challenge, err := s.CreateChallenge(ctx, entity.ChallengeTypeSliderPuzzle, 50, event.UserID)
-		if err != nil {
-			return err
-		}
-
-		response := &entity.WebSocketMessage{
-			Type:   entity.MessageTypeNewChallenge,
-			UserID: event.UserID,
-			Data: map[string]interface{}{
-				entity.FieldChallengeID: challenge.ID,
-				"html":                  challenge.HTML,
-			},
-		}
-
-		return s.wsSender.SendMessage(event.UserID, response)
-	}
-
-	return nil
 }
