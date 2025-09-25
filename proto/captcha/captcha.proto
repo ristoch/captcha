@@ -3,9 +3,21 @@ syntax = "proto3";
 package captcha.v1;
 option go_package = "captcha-service/gen/proto/captcha/v1";
 
+import "google/api/annotations.proto";
+
 service CaptchaService {
-  rpc NewChallenge(ChallengeRequest) returns (ChallengeResponse) {}
-  rpc ValidateChallenge(ValidateRequest) returns (ValidateResponse) {}
+  rpc NewChallenge(ChallengeRequest) returns (ChallengeResponse) {
+    option (google.api.http) = {
+      post: "/api/challenge"
+      body: "*"
+    };
+  }
+  rpc ValidateChallenge(ValidateRequest) returns (ValidateResponse) {
+    option (google.api.http) = {
+      post: "/api/validate"
+      body: "*"
+    };
+  }
   rpc MakeEventStream(stream ClientEvent) returns (stream ServerEvent) {}
 }
 

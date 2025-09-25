@@ -8,4 +8,8 @@ plugins:
     out: gen/proto
     opt:
       - paths=source_relative
+  - plugin: go-grpc-gateway
+    out: gen/proto
+    opt:
+      - paths=source_relative
 

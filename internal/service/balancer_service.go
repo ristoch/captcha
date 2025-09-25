@@ -166,4 +166,24 @@ func (s *BalancerService) StartCleanup() {
 }
 
 func (s *BalancerService) Stop() {
+	instances, err := s.instanceRepo.GetAllInstances()
+	if err != nil {
+		logger.Error("Failed to get instances during stop", zap.Error(err))
+		return
+	}
+
+	for _, instance := range instances {
+		instance.Status = "STOPPED"
+		if err := s.instanceRepo.SaveInstance(instance); err != nil {
+			logger.Error("Failed to update instance status during stop",
+				zap.String("instance_id", instance.ID),
+				zap.Error(err))
+		}
+	}
+
+	if err := s.userBlockRepo.CleanupExpiredBlocks(); err != nil {
+		logger.Error("Failed to cleanup expired blocks during stop", zap.Error(err))
+	}
+
+	logger.Info("Balancer service stopped", zap.Int("instances_stopped", len(instances)))
 }

@@ -5,8 +5,9 @@ import (
 )
 
 type BalancerConfig struct {
-	Host string `env:"HOST" envDefault:"localhost"`
-	Port string `env:"PORT" envDefault:"8080"`
+	Host     string `env:"HOST" envDefault:"localhost"`
+	Port     string `env:"PORT" envDefault:"8080"`
+	GRPCPort string `env:"GRPC_PORT" envDefault:"9090"`
 
 	LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
 

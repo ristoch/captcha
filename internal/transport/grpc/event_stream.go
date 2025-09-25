@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"log"
 
-	captchaProto "captcha-service/gen/proto/proto/captcha"
+	captchaProto "captcha-service/gen/proto/captcha"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/service"
 

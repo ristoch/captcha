@@ -12,13 +12,14 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	captchaProto "captcha-service/gen/proto/captcha"
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
-	captchaProto "captcha-service/gen/proto/proto/captcha"
 	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/service"
@@ -464,23 +465,96 @@ func (bp *BalancerProxy) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (bp *BalancerProxy) ListServicesHandler(w http.ResponseWriter, r *http.Request) {
+func (bp *BalancerProxy) MemoryStatsHandler(w http.ResponseWriter, r *http.Request) {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
 	bp.mu.RLock()
-	services := make([]entity.Instance, len(bp.serviceAddrs))
+	serviceCount := len(bp.captchaClients)
+	sessionCount := len(bp.sessions)
+	bp.mu.RUnlock()
+
+	response := map[string]interface{}{
+		"timestamp": time.Now().Unix(),
+		"system": map[string]interface{}{
+			"alloc_mb":        memStats.Alloc / 1024 / 1024,
+			"total_alloc_mb":  memStats.TotalAlloc / 1024 / 1024,
+			"sys_mb":          memStats.Sys / 1024 / 1024,
+			"num_gc":          memStats.NumGC,
+			"gc_cpu_fraction": memStats.GCCPUFraction,
+		},
+		"services": map[string]interface{}{
+			"count": serviceCount,
+		},
+		"sessions": map[string]interface{}{
+			"count": sessionCount,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (bp *BalancerProxy) StatsHandler(w http.ResponseWriter, r *http.Request) {
+	bp.mu.RLock()
+	serviceCount := len(bp.captchaClients)
+	sessionCount := len(bp.sessions)
+	services := make([]map[string]interface{}, len(bp.serviceAddrs))
 	for i, addr := range bp.serviceAddrs {
-		services[i] = entity.Instance{
-			ID:     fmt.Sprintf("service_%d", i),
-			Type:   "captcha",
-			Host:   addr,
-			Port:   8080,
-			Status: "active",
+		services[i] = map[string]interface{}{
+			"address": addr,
+			"status":  "active",
 		}
 	}
 	bp.mu.RUnlock()
 
 	response := map[string]interface{}{
-		"services": services,
-		"count":    len(services),
+		"timestamp": time.Now().Unix(),
+		"services": map[string]interface{}{
+			"count": serviceCount,
+			"list":  services,
+		},
+		"sessions": map[string]interface{}{
+			"count": sessionCount,
+		},
+		"balancer": map[string]interface{}{
+			"connected": bp.balancerClient != nil,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (bp *BalancerProxy) ListServicesHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Получаем все инстансы из балансера
+	instances, err := bp.balancerClient.GetInstances(ctx, &protoBalancer.GetInstancesRequest{})
+	if err != nil {
+		log.Printf("Failed to get instances from balancer: %v", err)
+		http.Error(w, "Failed to get instances from balancer", http.StatusInternalServerError)
+		return
+	}
+
+	// Конвертируем в формат для ответа
+	services := make([]map[string]interface{}, len(instances.Instances))
+	for i, instance := range instances.Instances {
+		services[i] = map[string]interface{}{
+			"id":        instance.InstanceId,
+			"type":      instance.ChallengeType,
+			"host":      instance.Host,
+			"port":      instance.PortNumber,
+			"status":    instance.Status,
+			"last_seen": time.Unix(instance.LastSeen, 0).Format(time.RFC3339),
+		}
+	}
+
+	response := map[string]interface{}{
+		"services":  services,
+		"count":     len(services),
+		"timestamp": time.Now().Unix(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -608,7 +682,7 @@ func (bp *BalancerProxy) ValidateChallengeHandler(w http.ResponseWriter, r *http
 	}
 
 	var req struct {
-		ChallengeID string      `json:entity.FieldChallengeID`
+		ChallengeID string      `json:"challenge_id"`
 		Answer      interface{} `json:"answer"`
 	}
 
@@ -924,10 +998,11 @@ func SetupBalancerProxyRoutes(proxy *BalancerProxy, cfg *config.BalancerProxyCon
 	mux.HandleFunc("/challenge", proxy.ChallengeHandler)
 	mux.HandleFunc("/api/challenge", proxy.ChallengeHandler)
 	mux.HandleFunc("/api/validate", proxy.ValidateChallengeHandler)
-	mux.HandleFunc("/api/services", proxy.ListServicesHandler)
 	mux.HandleFunc("/api/services/add", proxy.AddServiceHandler)
 	mux.HandleFunc("/api/services/remove", proxy.RemoveServiceHandler)
 	mux.HandleFunc("/api/health", proxy.HealthHandler)
+	mux.HandleFunc("/api/memory", proxy.MemoryStatsHandler)
+	mux.HandleFunc("/api/stats", proxy.StatsHandler)
 
 	mux.HandleFunc("/blocked", func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "User blocked", http.StatusTooManyRequests)

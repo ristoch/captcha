@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 
-	captchav1 "captcha-service/gen/proto/proto/captcha"
+	captchav1 "captcha-service/gen/proto/captcha"
 
 	"google.golang.org/grpc"
 )
@@ -35,6 +35,10 @@ func (s *Server) Start() error {
 
 	log.Printf("gRPC server starting on port %d", s.port)
 	return s.server.Serve(lis)
+}
+
+func (s *Server) Register(grpcServer *grpc.Server) {
+	captchav1.RegisterCaptchaServiceServer(grpcServer, s.handlers)
 }
 
 func (s *Server) Stop(ctx context.Context) error {

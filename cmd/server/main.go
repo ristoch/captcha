@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"captcha-service/internal/infrastructure/template"
 	"captcha-service/internal/service"
 	"captcha-service/internal/transport/grpc"
+	grpc_gateway "captcha-service/internal/transport/grpc_gateway"
 	"captcha-service/internal/transport/http"
 	"captcha-service/pkg/logger"
 
@@ -46,15 +48,29 @@ func main() {
 
 	captchaService := service.NewCaptchaService(repo, registry, nil, entityConfig)
 
-	portFinder := port.NewPortFinder(int(cfg.MinPort), int(cfg.MaxPort))
-	availablePort, err := portFinder.FindAvailablePortWithRetry(3, 1*time.Second)
-	if err != nil {
-		logger.Fatal("Failed to find available port", zap.Error(err))
+	// Используем порт из конфигурации, если задан
+	var availablePort int
+	if cfg.Port != "" {
+		if p, err := strconv.Atoi(cfg.Port); err == nil {
+			availablePort = p
+			logger.Info("Using configured port", zap.Int("port", availablePort))
+		} else {
+			logger.Fatal("Invalid port configuration", zap.String("port", cfg.Port), zap.Error(err))
+		}
+	} else {
+		// Ищем свободный порт только если не задан в конфигурации
+		portFinder := port.NewPortFinder(int(cfg.MinPort), int(cfg.MaxPort))
+		var err error
+		availablePort, err = portFinder.FindAvailablePortWithRetry(3, 1*time.Second)
+		if err != nil {
+			logger.Fatal("Failed to find available port", zap.Error(err))
+		}
+		logger.Info("Found available port", zap.Int("port", availablePort))
 	}
 
-	logger.Info("Found available port", zap.Int("port", availablePort))
-
 	balancerClient := balancer.NewClient(entityConfig)
+	// Обновляем порт в клиенте балансера
+	balancerClient.SetPort(int32(availablePort))
 
 	ctx := context.Background()
 	if err := balancerClient.Connect(ctx); err != nil {
@@ -62,20 +78,13 @@ func main() {
 	}
 
 	grpcHandlers := grpc.NewHandlers(captchaService)
-	grpcServer := grpc.NewServer(grpcHandlers, availablePort)
-
 	httpHandlers := http.NewHandlers(captchaService)
-	httpServer := http.NewServer(httpHandlers, cfg.Port)
+
+	gatewayServer := grpc_gateway.NewServer(grpcHandlers, httpHandlers, availablePort)
 
 	go func() {
-		if err := grpcServer.Start(); err != nil {
-			logger.Error("gRPC server error", zap.Error(err))
-		}
-	}()
-
-	go func() {
-		if err := httpServer.Start(); err != nil {
-			logger.Error("HTTP server error", zap.Error(err))
+		if err := gatewayServer.Start(); err != nil {
+			logger.Error("Gateway server error", zap.Error(err))
 		}
 	}()
 
@@ -96,12 +105,8 @@ func main() {
 	if err := balancerClient.Stop(shutdownCtx); err != nil {
 		logger.Error("Failed to stop balancer client", zap.Error(err))
 	}
-	if err := grpcServer.Stop(shutdownCtx); err != nil {
-		logger.Error("Failed to stop gRPC server", zap.Error(err))
-	}
-
-	if err := httpServer.Stop(shutdownCtx); err != nil {
-		logger.Error("Failed to stop HTTP server", zap.Error(err))
+	if err := gatewayServer.Stop(shutdownCtx); err != nil {
+		logger.Error("Failed to stop gateway server", zap.Error(err))
 	}
 
 	logger.Info("Server stopped")

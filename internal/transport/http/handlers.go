@@ -82,6 +82,54 @@ func (h *Handlers) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *Handlers) HandleValidateRequest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		ChallengeID string      `json:"challenge_id"`
+		Answer      interface{} `json:"answer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	valid, confidence, err := h.captchaService.ValidateChallenge(r.Context(), req.ChallengeID, req.Answer)
+	if err != nil {
+		logger.Error("Failed to validate challenge", zap.Error(err))
+		http.Error(w, "Failed to validate challenge", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"valid":      valid,
+		"confidence": confidence,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handlers) HandleMemoryStats(w http.ResponseWriter, r *http.Request) {
+	// Простая заглушка для memory stats
+	stats := map[string]interface{}{
+		"memory_usage": "N/A",
+		"status":       "healthy",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+func (h *Handlers) HandleStats(w http.ResponseWriter, r *http.Request) {
+	// Простая заглушка для stats
+	stats := map[string]interface{}{
+		"requests_total": 0,
+		"status":         "healthy",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
 func (h *Handlers) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

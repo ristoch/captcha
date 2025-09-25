@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
 	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -25,11 +27,19 @@ type Client struct {
 }
 
 func NewClient(cfg *config.CaptchaConfig) *Client {
+	// Используем порт из конфигурации, если указан
+	port := int32(8080)
+	if cfg.Port != "" {
+		if p, err := strconv.Atoi(cfg.Port); err == nil {
+			port = int32(p)
+		}
+	}
+
 	return &Client{
 		config:     cfg,
 		instanceID: generateInstanceID(),
 		host:       cfg.Host,
-		port:       8080, // Default port
+		port:       port,
 	}
 }
 
@@ -75,6 +85,10 @@ func (c *Client) sendReadyEvent() error {
 	}
 
 	return c.stream.Send(req)
+}
+
+func (c *Client) SetPort(port int32) {
+	c.port = port
 }
 
 func (c *Client) sendStoppedEvent() error {
@@ -123,5 +137,5 @@ func (c *Client) Stop(ctx context.Context) error {
 }
 
 func generateInstanceID() string {
-	return "captcha-instance-" + time.Now().Format("20060102150405")
+	return "captcha-instance-" + uuid.New().String()
 }

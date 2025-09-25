@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strconv"
 
-	captchav1 "captcha-service/gen/proto/proto/captcha"
+	captchav1 "captcha-service/gen/proto/captcha"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/service"
 	"captcha-service/pkg/logger"
