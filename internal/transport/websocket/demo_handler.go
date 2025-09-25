@@ -224,7 +224,6 @@ func (h *DemoWebSocketHandler) handleChallengeRequest(conn *websocket.Conn, msg 
 		}
 	}
 
-	// Create challenge using DemoUsecase
 	challenge, err := h.usecase.CreateChallenge(userID, "slider-puzzle", complexity)
 	if err != nil {
 		log.Printf("Error creating challenge: %v", err)
@@ -285,7 +284,6 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 		return
 	}
 
-	// Use DemoUsecase for validation
 	valid, confidence, err := h.usecase.ValidateChallenge(userID, challengeID, answer)
 	if err != nil {
 		log.Printf("Error validating challenge: %v", err)
@@ -297,7 +295,6 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 		h.sendValidationResponse(conn, userID, sessionID, challengeID, true, confidence, false, "")
 		log.Printf("Challenge %s validated successfully for user %s", challengeID, userID)
 	} else {
-		// Check if user should be blocked after this failed attempt
 		shouldBlock, err := h.usecase.ShouldBlockUser(userID)
 		if err != nil {
 			log.Printf("Error checking if user should be blocked: %v", err)
@@ -311,7 +308,6 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 			h.sendValidationResponse(conn, userID, sessionID, challengeID, false, confidence, true, "User blocked due to too many failed attempts")
 			log.Printf("User %s blocked after failed validation", userID)
 		} else {
-			// Create new challenge for failed attempt
 			newChallenge, err := h.usecase.CreateChallenge(userID, "slider-puzzle", 50)
 			if err != nil {
 				log.Printf("Error creating new challenge: %v", err)
@@ -360,7 +356,6 @@ func (h *DemoWebSocketHandler) getOrCreateSession(w http.ResponseWriter, r *http
 }
 
 func (h *DemoWebSocketHandler) getUserIDFromSession(sessionID string) string {
-	// For demo purposes, use a fixed user ID to maintain blocking state
 	return "demo_user"
 }
 
@@ -462,13 +457,11 @@ func (h *DemoWebSocketHandler) handleCaptchaEvent(conn *websocket.Conn, msg WebS
 	case "newChallenge":
 		log.Printf("User %s requested new challenge", userID)
 
-		// Generate new random challenge data
 		rand.Seed(time.Now().UnixNano())
 		backgroundImage := entity.BackgroundImages[rand.Intn(len(entity.BackgroundImages))]
 		puzzleShape := entity.PuzzleShapes[rand.Intn(len(entity.PuzzleShapes))]
 		newTargetX := rand.Intn(340) + 30 // Random position between 30 and 370
 
-		// Send new challenge data to iframe
 		response := WebSocketMessage{
 			Type:      "new_challenge_data",
 			UserID:    userID,
@@ -511,7 +504,6 @@ func (h *DemoWebSocketHandler) handleCaptchaEvent(conn *websocket.Conn, msg WebS
 		}
 	}
 
-	// Acknowledge the event
 	response := WebSocketMessage{
 		Type:      "captcha_event_ack",
 		UserID:    userID,

@@ -4,7 +4,6 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-// BaseConfig базовые настройки, общие для всех сервисов
 type BaseConfig struct {
 	DefaultHost string `env:"DEFAULT_HOST" envDefault:"localhost"`
 	DefaultPort string `env:"DEFAULT_PORT" envDefault:"8080"`

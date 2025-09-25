@@ -11,7 +11,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// InstanceRepository defines the interface for instance persistence operations
 type InstanceRepository interface {
 	SaveInstance(instance *entity.Instance) error
 	GetInstance(id string) (*entity.Instance, error)
@@ -19,7 +18,6 @@ type InstanceRepository interface {
 	RemoveInstance(id string) error
 }
 
-// UserBlockRepository defines the interface for user blocking operations
 type UserBlockRepository interface {
 	SaveBlockedUser(blockedUser *entity.BlockedUser) error
 	GetBlockedUser(userID string) (*entity.BlockedUser, error)
@@ -30,7 +28,6 @@ type UserBlockRepository interface {
 	CleanupExpiredBlocks() error
 }
 
-// BalancerServiceInterface defines the interface for balancer service operations
 type BalancerServiceInterface interface {
 	RegisterInstance(req *entity.RegisterInstanceRequest) error
 	GetInstances() ([]*entity.Instance, error)

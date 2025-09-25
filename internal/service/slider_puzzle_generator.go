@@ -10,7 +10,6 @@ import (
 	"captcha-service/internal/domain/entity"
 )
 
-// TemplateEngine defines the interface for template rendering
 type TemplateEngine interface {
 	Render(templateName string, data interface{}) (string, error)
 }
@@ -39,25 +38,18 @@ func (g *SliderPuzzleGenerator) Generate(ctx context.Context, complexity int32, 
 	canvasWidth := entity.CanvasWidth
 	canvasHeight := entity.CanvasHeight
 
-	var puzzleSize int
+	minSize := int(g.config.PuzzleSizeLow)
+	maxSize := int(g.config.PuzzleSizeHigh)
 
-	if complexity <= g.config.ComplexityLow {
-		puzzleSize = int(g.config.PuzzleSizeLow)
-	} else if complexity <= g.config.ComplexityMedium {
-		puzzleSize = int(g.config.PuzzleSizeMedium)
-	} else {
-		puzzleSize = int(g.config.PuzzleSizeHigh)
-	}
+	puzzleSize := minSize + int((int(complexity)-1)*(maxSize-minSize)/99)
 
-	// Ensure puzzle size doesn't exceed canvas dimensions
 	if puzzleSize > canvasWidth {
-		puzzleSize = canvasWidth - 20 // Leave some margin
+		puzzleSize = canvasWidth - 20
 	}
 	if puzzleSize > canvasHeight-entity.PuzzleGapTop {
-		puzzleSize = canvasHeight - entity.PuzzleGapTop - 20 // Leave some margin
+		puzzleSize = canvasHeight - entity.PuzzleGapTop - 20
 	}
 
-	// Generate random positions
 	targetX := g.rand.Intn(canvasWidth - puzzleSize)
 	targetY := g.rand.Intn(canvasHeight-puzzleSize-entity.PuzzleGapTop) + entity.PuzzleGapTop
 
@@ -108,16 +100,16 @@ func (g *SliderPuzzleGenerator) Validate(answer interface{}, data interface{}) (
 		return false, 0, fmt.Errorf("неверный формат данных челленджа")
 	}
 
-	targetX := 200
-	targetY := 150
-	tolerance := 10
+	targetX := int(g.config.DefaultTargetX)
+	targetY := int(g.config.DefaultTargetY)
+	tolerance := int(g.config.DefaultTolerance)
 
 	diffX := int(answeredX) - targetX
 	diffY := int(answeredY) - targetY
 
 	isValid := (diffX >= -tolerance && diffX <= tolerance) && (diffY >= -tolerance && diffY <= tolerance)
 
-	confidence := int32(85)
+	confidence := g.config.DefaultConfidence
 
 	return isValid, confidence, nil
 }
@@ -128,19 +120,4 @@ func (g *SliderPuzzleGenerator) GenerateHTML(challenge *entity.Challenge) (strin
 	}
 
 	return g.templateEngine.Render("slider_puzzle", challenge)
-}
-
-func (g *SliderPuzzleGenerator) convertToFloat64(value interface{}) (float64, error) {
-	switch v := value.(type) {
-	case float64:
-		return v, nil
-	case int:
-		return float64(v), nil
-	case int32:
-		return float64(v), nil
-	case int64:
-		return float64(v), nil
-	default:
-		return 0, fmt.Errorf("cannot convert %T to float64", value)
-	}
 }

@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// CaptchaService defines the interface for captcha service operations
 type CaptchaService interface {
 	CreateChallenge(ctx context.Context, challengeType string, complexity int32, userID string) (*entity.Challenge, error)
 	ValidateChallenge(ctx context.Context, challengeID string, answer interface{}) (bool, int32, error)

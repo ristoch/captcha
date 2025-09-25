@@ -7,7 +7,6 @@ import (
 	"captcha-service/internal/domain/entity"
 )
 
-// ChallengeGenerator defines the interface for challenge generation and validation
 type ChallengeGenerator interface {
 	Generate(ctx context.Context, complexity int32, userID string) (*entity.Challenge, error)
 	Validate(answer interface{}, data interface{}) (bool, int32, error)

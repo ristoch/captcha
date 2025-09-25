@@ -4,19 +4,14 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-// CaptchaServiceConfig конфигурация для captcha-service
 type CaptchaServiceConfig struct {
-	// Server settings
 	Host string `env:"HOST" envDefault:"localhost"`
 	Port string `env:"PORT" envDefault:"8080"`
 
-	// Balancer settings
 	BalancerAddress string `env:"BALANCER_ADDRESS" envDefault:""`
 
-	// Logging
 	LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
 
-	// Challenge settings
 	ChallengeType        string `env:"CHALLENGE_TYPE" envDefault:"slider-puzzle"`
 	ComplexityLow        int32  `env:"COMPLEXITY_LOW" envDefault:"30"`
 	ComplexityMedium     int32  `env:"COMPLEXITY_MEDIUM" envDefault:"50"`
@@ -31,24 +26,19 @@ type CaptchaServiceConfig struct {
 	ExpirationTimeMedium int32  `env:"EXPIRATION_TIME_MEDIUM" envDefault:"180"`
 	ExpirationTimeHigh   int32  `env:"EXPIRATION_TIME_HIGH" envDefault:"120"`
 
-	// Timing settings
 	MinTimeMs          int32 `env:"MIN_TIME_MS" envDefault:"1000"`
 	MaxTimeMs          int32 `env:"MAX_TIME_MS" envDefault:"30000"`
 	MaxTimeoutAttempts int32 `env:"MAX_TIMEOUT_ATTEMPTS" envDefault:"3"`
 
-	// Validation settings
 	MinOverlapPct int32 `env:"MIN_OVERLAP_PCT" envDefault:"20"`
 
-	// Cleanup settings
 	CleanupInterval int32 `env:"CLEANUP_INTERVAL" envDefault:"300"`
 	StaleThreshold  int32 `env:"STALE_THRESHOLD" envDefault:"600"`
 
-	// User blocking settings
 	MaxAttempts      int32 `env:"MAX_ATTEMPTS" envDefault:"3"`
 	BlockDurationMin int32 `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
 }
 
-// LoadCaptchaServiceConfig загружает конфигурацию для captcha-service
 func LoadCaptchaServiceConfig() (*CaptchaServiceConfig, error) {
 	config := &CaptchaServiceConfig{}
 

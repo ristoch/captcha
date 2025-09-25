@@ -21,7 +21,6 @@ import (
 	"captcha-service/internal/usecase"
 )
 
-// convertEntityConfig converts config.EntityConfig to entity.Config
 func convertEntityConfig(cfg *config.EntityConfig) *entity.Config {
 	return &entity.Config{
 		MaxAttempts:          cfg.MaxAttempts,
@@ -44,6 +43,10 @@ func convertEntityConfig(cfg *config.EntityConfig) *entity.Config {
 		MinOverlapPct:        cfg.MinOverlapPct,
 		CleanupInterval:      cfg.CleanupInterval,
 		StaleThreshold:       cfg.StaleThreshold,
+		DefaultTargetX:       cfg.DefaultTargetX,
+		DefaultTargetY:       cfg.DefaultTargetY,
+		DefaultTolerance:     cfg.DefaultTolerance,
+		DefaultConfidence:    cfg.DefaultConfidence,
 	}
 }
 
@@ -61,22 +64,18 @@ func main() {
 	}
 	demoUsecase := usecase.NewDemoUsecase(sessionRepo, demoConfig)
 
-	// Load entity config from environment variables
 	entityConfigFromEnv, err := config.LoadConfigFromEnv[config.EntityConfig]()
 	if err != nil {
 		log.Fatalf("Failed to load entity config: %v", err)
 	}
 	entityConfig := convertEntityConfig(entityConfigFromEnv)
 
-	// Create real challenge repository
 	challengeRepo := persistence.NewMemoryOptimizedRepository(cfg.MaxChallenges)
 
-	// Create generator registry and register slider puzzle generator
 	registry := service.NewGeneratorRegistry()
 	sliderGenerator := service.NewSliderPuzzleGenerator(entityConfig, challengeRepo, nil)
 	registry.Register(entity.ChallengeTypeSliderPuzzle, sliderGenerator)
 
-	// Create captcha service
 	captchaService := service.NewCaptchaService(challengeRepo, registry, nil, entityConfig)
 
 	tmpl := template.New("demo")
@@ -84,7 +83,6 @@ func main() {
 	demoHandler := httpTransport.NewDemoHandler(demoUsecase, captchaService, tmpl, cfg)
 	wsHandler := wsTransport.NewDemoWebSocketHandler(demoConfig, sessionRepo)
 
-	// Setup HTTP routes
 	router := httpTransport.NewRouter(demoHandler, wsHandler)
 	mux := router.SetupRoutes()
 

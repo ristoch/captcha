@@ -139,10 +139,8 @@ const (
 )
 
 const (
-	CanvasWidth          = 400
-	CanvasHeight         = 300
-	DragDropCanvasWidth  = 400
-	DragDropCanvasHeight = 300
+	CanvasWidth  = 400
+	CanvasHeight = 300
 )
 
 const (
@@ -195,6 +193,10 @@ type Config struct {
 	StaleThreshold       int32  `env:"STALE_THRESHOLD" envDefault:"600"`
 	MaxAttempts          int32  `env:"MAX_ATTEMPTS" envDefault:"3"`
 	BlockDurationMin     int32  `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
+	DefaultTargetX       int32  `env:"DEFAULT_TARGET_X" envDefault:"200"`
+	DefaultTargetY       int32  `env:"DEFAULT_TARGET_Y" envDefault:"150"`
+	DefaultTolerance     int32  `env:"DEFAULT_TOLERANCE" envDefault:"10"`
+	DefaultConfidence    int32  `env:"DEFAULT_CONFIDENCE" envDefault:"85"`
 }
 
 type DemoConfig struct {
@@ -202,6 +204,10 @@ type DemoConfig struct {
 	CaptchaServiceURL string `env:"CAPTCHA_SERVICE_URL" envDefault:"http://localhost:8081"`
 	MaxAttempts       int32  `env:"MAX_ATTEMPTS" envDefault:"3"`
 	BlockDuration     int32  `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
+	DefaultTargetX    int32  `env:"DEFAULT_TARGET_X" envDefault:"200"`
+	DefaultTargetY    int32  `env:"DEFAULT_TARGET_Y" envDefault:"150"`
+	DefaultTolerance  int32  `env:"DEFAULT_TOLERANCE" envDefault:"10"`
+	DefaultConfidence int32  `env:"DEFAULT_CONFIDENCE" envDefault:"85"`
 }
 
 type Instance struct {

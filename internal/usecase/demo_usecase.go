@@ -174,7 +174,7 @@ func (u *DemoUsecase) ValidateChallenge(userID, challengeID string, answer map[s
 		return false, 0, fmt.Errorf("invalid answer format")
 	}
 
-	targetX, targetY := 200.0, 150.0
+	targetX, targetY := float64(u.config.DefaultTargetX), float64(u.config.DefaultTargetY)
 	tolerance := 20.0
 
 	diffX := x - targetX

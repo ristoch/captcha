@@ -115,12 +115,10 @@ func (b *GlobalUserBlocker) RecordAttempt(userID, challengeID string) (isBlocked
 		return false, remainingAttempts
 	}
 
-	// Если пользователь уже заблокирован и блокировка еще действует
 	if !blockedUser.BlockedUntil.IsZero() && now.Before(blockedUser.BlockedUntil) {
 		return true, 0
 	}
 
-	// Если блокировка истекла, сбрасываем счетчик
 	if !blockedUser.BlockedUntil.IsZero() && now.After(blockedUser.BlockedUntil) {
 		blockedUser.Attempts = 0
 		blockedUser.BlockedUntil = time.Time{}
@@ -130,7 +128,6 @@ func (b *GlobalUserBlocker) RecordAttempt(userID, challengeID string) (isBlocked
 	blockedUser.Attempts++
 	blockedUser.LastAttempt = now
 
-	// Блокируем пользователя после MAX_ATTEMPTS попыток (не MAX_ATTEMPTS-1)
 	if blockedUser.Attempts >= b.config.MaxAttempts {
 		blockedUser.BlockedUntil = now.Add(time.Duration(b.config.BlockDurationMin) * time.Minute)
 		blockedUser.Reason = "Too many failed attempts"

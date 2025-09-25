@@ -144,14 +144,12 @@ func (h *EventStreamHandler) handleValidation(stream captchaProto.CaptchaService
 func (h *EventStreamHandler) handleBalancerEvent(stream captchaProto.CaptchaService_MakeEventStreamServer, event *captchaProto.ClientEvent) error {
 	log.Printf("Balancer event for challenge %s: %+v", event.ChallengeId, event.Data)
 
-	// Парсим данные balancer события
 	var balancerData map[string]interface{}
 	if err := json.Unmarshal(event.Data, &balancerData); err != nil {
 		log.Printf("Error unmarshaling balancer event data: %v", err)
 		return status.Errorf(codes.InvalidArgument, "invalid balancer event data")
 	}
 
-	// Определяем тип balancer собычытиячыччы
 	eventType, ok := balancerData[entity.FieldType].(string)
 	if !ok {
 		log.Printf("Missing event type in balancer event data")

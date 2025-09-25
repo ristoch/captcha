@@ -36,7 +36,6 @@ func (h *DemoHandler) HandleDemo(w http.ResponseWriter, r *http.Request) {
 	complexityStr := r.URL.Query().Get("complexity")
 	complexity := int(h.config.DefaultComplexity)
 	if c, err := strconv.Atoi(complexityStr); err == nil {
-		// Validate complexity range (0-100)
 		if c >= 0 && c <= 100 {
 			complexity = c
 		} else {
@@ -70,7 +69,6 @@ func (h *DemoHandler) HandleDemo(w http.ResponseWriter, r *http.Request) {
 
 	h.setSessionCookie(w, session.SessionID)
 
-	// Create a real challenge using the captcha service
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -81,10 +79,8 @@ func (h *DemoHandler) HandleDemo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate HTML for the captcha iframe using real challenge data
 	captchaHTML := h.createRealChallengeHTML(challenge, userID)
 
-	// Load and execute the demo template
 	tmpl, err := template.ParseFiles("./templates/demo.html")
 	if err != nil {
 		log.Printf("Error loading demo template: %v", err)
@@ -92,7 +88,6 @@ func (h *DemoHandler) HandleDemo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create template data
 	data := struct {
 		ChallengeID string
 		Complexity  int
@@ -144,15 +139,25 @@ func (h *DemoHandler) setSessionCookie(w http.ResponseWriter, sessionID string) 
 }
 
 func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userID string) string {
-	// Generate random background image and puzzle shape
 	rand.Seed(time.Now().UnixNano())
 	backgroundImage := entity.BackgroundImages[rand.Intn(len(entity.BackgroundImages))]
 	puzzleShape := entity.PuzzleShapes[rand.Intn(len(entity.PuzzleShapes))]
 
-	// Get target position from challenge data
-	targetX := 200 // Default value
+	targetX := int(h.config.DefaultComplexity)
+	targetY := 50
+	puzzleWidth := 60
+	puzzleHeight := 60
+
 	if sliderData, ok := challenge.Data.(entity.SliderPuzzleData); ok {
 		targetX = sliderData.ChallengeData.TargetX
+		targetY = sliderData.ChallengeData.TargetY
+
+		complexity := int(challenge.Complexity)
+		minSize := 40
+		maxSize := 80
+		puzzleSize := minSize + (complexity-1)*(maxSize-minSize)/99
+		puzzleWidth = puzzleSize
+		puzzleHeight = puzzleSize
 	}
 
 	return fmt.Sprintf(`
@@ -166,7 +171,7 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
     :root { 
       --w: 400px; 
       --h: 300px; 
-      --pz: 60px; 
+      --pz: %dpx; 
       --gap-top: 50px; 
     }
     * { box-sizing: border-box; }
@@ -177,6 +182,8 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
     canvas { display:block; width:100%%; height:100%%; }
     .piece { position:absolute; top: var(--gap-top); left: 0; width: var(--pz); height: var(--pz); background:transparent; box-shadow: 0 4px 10px rgba(0,0,0,.15); display:grid; place-items:center; }
     .ctrl { width:100%%; margin: 12px auto 0; }
+    .slider-container { margin: 8px 0; }
+    .slider-container label { display: block; margin-bottom: 4px; font-size: 14px; }
     input[type="range"] { width:100%%; height: 34px; -webkit-appearance:none; appearance:none; background:#e9ecef; border-radius: 999px; outline: none; }
     input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:34px; height:34px; border-radius:50%%; background:#1976d2; border:3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25); cursor:pointer; }
     input[type="range"]::-moz-range-thumb { width:34px; height:34px; border-radius:50%%; background:#1976d2; border:3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25); cursor:pointer; }
@@ -194,9 +201,12 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
       <canvas id="cv" width="400" height="300" aria-label="captcha"></canvas>
       <div id="piece" class="piece" aria-hidden="true"></div>
     </div>
-    <div class="ctrl">
-      <input id="slider" type="range" min="0" max="340" value="0" />
-    </div>
+           <div class="ctrl">
+             <div class="slider-container">
+               <label>X: <span id="x-value">0</span></label>
+               <input id="slider-x" type="range" min="0" max="340" value="0" />
+             </div>
+           </div>
     <div id="msg" class="msg"></div>
   </div>
 
@@ -206,9 +216,10 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
       user_id: "%s",
       canvas_width: 400,
       canvas_height: 300,
-      puzzle_width: 60,
-      puzzle_height: 60,
+      puzzle_width: %d,
+      puzzle_height: %d,
       target_x: %d,
+      target_y: %d,
       tolerance: 15,
       background_image: "http://localhost:8081/backgrounds/%s",
       puzzle_shape: "%s"
@@ -221,7 +232,8 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
     const cv = document.getElementById("cv");
     const ctx = cv.getContext("2d");
     const pieceEl = document.getElementById("piece");
-    const slider = document.getElementById("slider");
+           const sliderX = document.getElementById("slider-x");
+           const xValue = document.getElementById("x-value");
     const msg = document.getElementById("msg");
 
     let bgImage = null;
@@ -263,8 +275,7 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
     }
 
     function drawTargetHole() {
-      const y = 50;
-      const { puzzle_width: w, puzzle_height: h, target_x: x } = challengeData;
+      const { puzzle_width: w, puzzle_height: h, target_x: x, target_y: y } = challengeData;
       
       ctx.fillStyle = "rgba(0,0,0,.28)";
       ctx.fillRect(x, y, w, h);
@@ -276,7 +287,7 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
 
     function drawPieceAt(x) {
       pieceEl.style.left = x + "px";
-      pieceEl.style.top = "50px";
+      pieceEl.style.top = challengeData.target_y + "px";
 
       pieceEl.replaceChildren();
       const pz = document.createElement("canvas");
@@ -288,7 +299,7 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
         const scaleX = bgImage.width / cv.width;
         const scaleY = bgImage.height / cv.height;
         const srcX = challengeData.target_x * scaleX;
-        const srcY = 50 * scaleY;
+        const srcY = challengeData.target_y * scaleY;
         const srcW = challengeData.puzzle_width * scaleX;
         const srcH = challengeData.puzzle_height * scaleY;
 
@@ -335,8 +346,8 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
       challengeData.challenge_id = "mock_challenge_" + Date.now();
       challengeData.target_x = Math.floor(Math.random() * (400 - 60)) + 30;
       
-      slider.value = 0;
-      drawAll(0);
+      sliderX.value = 0;
+      updateDisplay();
       
       setMsg("Новая капча загружена. Попробуйте снова.", "hint");
       
@@ -362,9 +373,9 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
         return;
       }
 
-      const x = parseInt(slider.value);
-      const dist = Math.abs(x - challengeData.target_x);
-      const isCorrect = dist <= challengeData.tolerance;
+      const x = parseInt(sliderX.value);
+      const distX = Math.abs(x - challengeData.target_x);
+      const isCorrect = distX <= challengeData.tolerance;
       
       attempts++;
       
@@ -376,12 +387,12 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
             challengeId: challengeData.challenge_id,
             userId: challengeData.user_id,
             eventType: 'captchaSolved',
-            data: {
-              position: x,
-              distance: dist,
-              attempts: attempts,
-              timestamp: Date.now()
-            }
+              data: {
+                positionX: x,
+                distanceX: distX,
+                attempts: attempts,
+                timestamp: Date.now()
+              }
           }, '*');
         }
       } else {
@@ -395,9 +406,9 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
               userId: challengeData.user_id,
               eventType: 'userBlocked',
               data: {
-                position: x,
-                distance: dist,
-                target: challengeData.target_x,
+                positionX: x,
+                distanceX: distX,
+                targetX: challengeData.target_x,
                 attempts: attempts,
                 maxAttempts: MAX_ATTEMPTS,
                 timestamp: Date.now()
@@ -413,9 +424,9 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
               userId: challengeData.user_id,
               eventType: 'captchaFailed',
               data: {
-                position: x,
-                distance: dist,
-                target: challengeData.target_x,
+                positionX: x,
+                distanceX: distX,
+                targetX: challengeData.target_x,
                 attempts: attempts,
                 maxAttempts: MAX_ATTEMPTS,
                 timestamp: Date.now()
@@ -427,20 +438,24 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
       }
     }
 
-    slider.addEventListener("input", () => {
-      const x = parseInt(slider.value) || 0;
+    function updateDisplay() {
+      const x = parseInt(sliderX.value) || 0;
+      xValue.textContent = x;
       drawAll(x);
       setMsg("");
-    });
+    }
 
-    slider.addEventListener("change", () => {
-      check();
-    });
+    sliderX.addEventListener("input", updateDisplay);
+    sliderX.addEventListener("change", check);
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadImage);
+      document.addEventListener('DOMContentLoaded', () => {
+        loadImage();
+        updateDisplay();
+      });
     } else {
       loadImage();
+      updateDisplay();
     }
     
     if (window.top && window.top !== window) {
@@ -455,12 +470,10 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
       }, '*');
     }
 
-    // Listen for new challenge data from parent window
     window.addEventListener('message', function(event) {
       if (event.data.type === 'new_challenge_data') {
         console.log('Received new challenge data:', event.data);
         
-        // Update challenge data
         if (event.data.background_image) {
           challengeData.background_image = event.data.background_image;
         }
@@ -474,16 +487,14 @@ func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userI
           challengeData.challenge_id = event.data.challenge_id;
         }
         
-        // Reset UI
-        slider.value = 0;
-        drawAll(0);
+        sliderX.value = 0;
+        updateDisplay();
         setMsg("Новая капча загружена. Попробуйте снова.", "hint");
         
-        // Reload background image
         loadImage();
       }
     });
   </script>
-</body>
-</html>`, challenge.ID, userID, targetX, backgroundImage, puzzleShape, challenge.MaxAttempts)
+  </body>
+  </html>`, puzzleWidth, challenge.ID, userID, puzzleWidth, puzzleHeight, targetX, targetY, backgroundImage, puzzleShape, challenge.MaxAttempts)
 }
