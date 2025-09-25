@@ -54,6 +54,7 @@ func (h *Handlers) HandleChallengeRequest(w http.ResponseWriter, r *http.Request
 	var req struct {
 		ChallengeType string `json:"challenge_type"`
 		Complexity    int32  `json:"complexity"`
+		UserID        string `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		atomic.AddInt64(&h.errorsTotal, 1)
@@ -61,7 +62,12 @@ func (h *Handlers) HandleChallengeRequest(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	challenge, err := h.captchaService.CreateChallenge(r.Context(), req.ChallengeType, req.Complexity, "demo_user")
+	userID := req.UserID
+	if userID == "" {
+		userID = "demo_user"
+	}
+
+	challenge, err := h.captchaService.CreateChallenge(r.Context(), req.ChallengeType, req.Complexity, userID)
 	if err != nil {
 		atomic.AddInt64(&h.errorsTotal, 1)
 		logger.Error("Failed to create challenge", zap.Error(err))

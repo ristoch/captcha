@@ -18,14 +18,12 @@ import (
 	"captcha-service/internal/infrastructure/template"
 	"captcha-service/internal/service"
 	"captcha-service/internal/transport/grpc"
-	grpc_gateway "captcha-service/internal/transport/grpc_gateway"
+	"captcha-service/internal/transport/grpc_gateway"
 	"captcha-service/internal/transport/http"
 	"captcha-service/pkg/logger"
 
 	"go.uber.org/zap"
 )
-
-const serviceName = "captcha-service"
 
 func main() {
 	cfg, err := config.LoadCaptchaServiceConfig()
