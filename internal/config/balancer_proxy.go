@@ -20,6 +20,10 @@ type BalancerProxyConfig struct {
 	MinOverlapPct int32 `env:"MIN_OVERLAP_PCT" envDefault:"70"`
 
 	JaegerEndpoint string `env:"JAEGER_ENDPOINT" envDefault:""`
+
+	BackgroundsPath string `env:"BACKGROUNDS_PATH" envDefault:"./backgrounds/"`
+	BalancerAddress string `env:"BALANCER_ADDRESS" envDefault:"localhost:9090"`
+	DemoURL         string `env:"DEMO_URL" envDefault:"http://localhost:8082/demo"`
 }
 
 func LoadBalancerProxyConfig() (*BalancerProxyConfig, error) {

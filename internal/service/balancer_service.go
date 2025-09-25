@@ -5,6 +5,7 @@ import (
 	"time"
 
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/pkg/logger"
 
@@ -40,10 +41,10 @@ type BalancerServiceInterface interface {
 type BalancerService struct {
 	instanceRepo  InstanceRepository
 	userBlockRepo UserBlockRepository
-	config        *entity.Config
+	config        *config.ServiceConfig
 }
 
-func NewBalancerService(instanceRepo InstanceRepository, userBlockRepo UserBlockRepository, config *entity.Config) BalancerServiceInterface {
+func NewBalancerService(instanceRepo InstanceRepository, userBlockRepo UserBlockRepository, config *config.ServiceConfig) BalancerServiceInterface {
 	return &BalancerService{
 		instanceRepo:  instanceRepo,
 		userBlockRepo: userBlockRepo,

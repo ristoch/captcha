@@ -14,6 +14,9 @@ type BaseConfig struct {
 
 	MaxAttempts      int32 `env:"MAX_ATTEMPTS" envDefault:"3"`
 	BlockDurationMin int32 `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
+
+	MinPort int32 `env:"MIN_PORT" envDefault:"38000"`
+	MaxPort int32 `env:"MAX_PORT" envDefault:"40000"`
 }
 
 func LoadConfigFromEnv[T any]() (*T, error) {

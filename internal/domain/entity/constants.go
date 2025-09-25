@@ -17,10 +17,6 @@ const (
 )
 
 const (
-	EventTypeCaptchaFailed = "captchaFailed"
-)
-
-const (
 	FieldHTML           = "html"
 	FieldTimestamp      = "timestamp"
 	FieldIsCorrect      = "isCorrect"
@@ -71,16 +67,6 @@ const (
 	MessageNewChallengeReceived = "New challenge received!"
 	MessageWebSocketConnected   = "WebSocket connected"
 	MessageConnecting           = "Connecting to WebSocket..."
-)
-
-const (
-	GzipMagicByte1 = 0x1f
-	GzipMagicByte2 = 0x8b
-)
-
-const (
-	SliderEventDataLength = 7
-	DragEventDataLength   = 8
 )
 
 const (
@@ -160,55 +146,8 @@ var PuzzleShapes = []string{
 	"triangle",
 }
 
-const (
-	SignalBufferSize = 1
-)
-
 var ErrWebSocketNotConnected = errors.New("websocket not connected")
 var ErrUserBlocked = errors.New("user blocked")
-
-type Config struct {
-	Host                 string `env:"HOST" envDefault:"localhost"`
-	Port                 string `env:"PORT" envDefault:"8080"`
-	BalancerAddress      string `env:"BALANCER_ADDRESS" envDefault:""`
-	LogLevel             string `env:"LOG_LEVEL" envDefault:"info"`
-	ChallengeType        string `env:"CHALLENGE_TYPE" envDefault:"slider-puzzle"`
-	ComplexityLow        int32  `env:"COMPLEXITY_LOW" envDefault:"30"`
-	ComplexityMedium     int32  `env:"COMPLEXITY_MEDIUM" envDefault:"50"`
-	ComplexityHigh       int32  `env:"COMPLEXITY_HIGH" envDefault:"70"`
-	PuzzleSizeLow        int32  `env:"PUZZLE_SIZE_LOW" envDefault:"200"`
-	PuzzleSizeMedium     int32  `env:"PUZZLE_SIZE_MEDIUM" envDefault:"300"`
-	PuzzleSizeHigh       int32  `env:"PUZZLE_SIZE_HIGH" envDefault:"400"`
-	ToleranceLow         int32  `env:"TOLERANCE_LOW" envDefault:"10"`
-	ToleranceMedium      int32  `env:"TOLERANCE_MEDIUM" envDefault:"5"`
-	ToleranceHigh        int32  `env:"TOLERANCE_HIGH" envDefault:"3"`
-	ExpirationTimeLow    int32  `env:"EXPIRATION_TIME_LOW" envDefault:"300"`
-	ExpirationTimeMedium int32  `env:"EXPIRATION_TIME_MEDIUM" envDefault:"180"`
-	ExpirationTimeHigh   int32  `env:"EXPIRATION_TIME_HIGH" envDefault:"120"`
-	MinTimeMs            int32  `env:"MIN_TIME_MS" envDefault:"1000"`
-	MaxTimeMs            int32  `env:"MAX_TIME_MS" envDefault:"30000"`
-	MaxTimeoutAttempts   int32  `env:"MAX_TIMEOUT_ATTEMPTS" envDefault:"3"`
-	MinOverlapPct        int32  `env:"MIN_OVERLAP_PCT" envDefault:"20"`
-	CleanupInterval      int32  `env:"CLEANUP_INTERVAL" envDefault:"300"`
-	StaleThreshold       int32  `env:"STALE_THRESHOLD" envDefault:"600"`
-	MaxAttempts          int32  `env:"MAX_ATTEMPTS" envDefault:"3"`
-	BlockDurationMin     int32  `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
-	DefaultTargetX       int32  `env:"DEFAULT_TARGET_X" envDefault:"200"`
-	DefaultTargetY       int32  `env:"DEFAULT_TARGET_Y" envDefault:"150"`
-	DefaultTolerance     int32  `env:"DEFAULT_TOLERANCE" envDefault:"10"`
-	DefaultConfidence    int32  `env:"DEFAULT_CONFIDENCE" envDefault:"85"`
-}
-
-type DemoConfig struct {
-	Port              string `env:"DEMO_PORT" envDefault:"8082"`
-	CaptchaServiceURL string `env:"CAPTCHA_SERVICE_URL" envDefault:"http://localhost:8081"`
-	MaxAttempts       int32  `env:"MAX_ATTEMPTS" envDefault:"3"`
-	BlockDuration     int32  `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
-	DefaultTargetX    int32  `env:"DEFAULT_TARGET_X" envDefault:"200"`
-	DefaultTargetY    int32  `env:"DEFAULT_TARGET_Y" envDefault:"150"`
-	DefaultTolerance  int32  `env:"DEFAULT_TOLERANCE" envDefault:"10"`
-	DefaultConfidence int32  `env:"DEFAULT_CONFIDENCE" envDefault:"85"`
-}
 
 type Instance struct {
 	ID           string    `json:"id"`

@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"fmt"
 	"time"
@@ -8,10 +9,10 @@ import (
 
 type DemoUsecase struct {
 	sessionRepo entity.SessionRepository
-	config      *entity.DemoConfig
+	config      *config.DemoConfig
 }
 
-func NewDemoUsecase(sessionRepo entity.SessionRepository, config *entity.DemoConfig) *DemoUsecase {
+func NewDemoUsecase(sessionRepo entity.SessionRepository, config *config.DemoConfig) *DemoUsecase {
 	return &DemoUsecase{
 		sessionRepo: sessionRepo,
 		config:      config,

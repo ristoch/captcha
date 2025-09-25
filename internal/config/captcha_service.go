@@ -4,7 +4,7 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-type CaptchaServiceConfig struct {
+type CaptchaConfig struct {
 	Host string `env:"HOST" envDefault:"localhost"`
 	Port string `env:"PORT" envDefault:"8080"`
 
@@ -37,10 +37,22 @@ type CaptchaServiceConfig struct {
 
 	MaxAttempts      int32 `env:"MAX_ATTEMPTS" envDefault:"3"`
 	BlockDurationMin int32 `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
+
+	MinPort int32 `env:"MIN_PORT" envDefault:"38000"`
+	MaxPort int32 `env:"MAX_PORT" envDefault:"40000"`
+
+	MaxChallenges      int32  `env:"MAX_CHALLENGES" envDefault:"10000"`
+	ShutdownTimeoutSec int32  `env:"SHUTDOWN_TIMEOUT_SEC" envDefault:"30"`
+	BalancerAddr       string `env:"BALANCER_ADDR" envDefault:"localhost:9090"`
+
+	DefaultTargetX    int32 `env:"DEFAULT_TARGET_X" envDefault:"200"`
+	DefaultTargetY    int32 `env:"DEFAULT_TARGET_Y" envDefault:"150"`
+	DefaultTolerance  int32 `env:"DEFAULT_TOLERANCE" envDefault:"10"`
+	DefaultConfidence int32 `env:"DEFAULT_CONFIDENCE" envDefault:"85"`
 }
 
-func LoadCaptchaServiceConfig() (*CaptchaServiceConfig, error) {
-	config := &CaptchaServiceConfig{}
+func LoadCaptchaServiceConfig() (*CaptchaConfig, error) {
+	config := &CaptchaConfig{}
 
 	if err := env.Parse(config); err != nil {
 		return nil, err

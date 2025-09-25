@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/infrastructure/repository"
 	"captcha-service/internal/usecase"
@@ -38,7 +39,7 @@ type DemoWebSocketHandler struct {
 	upgrader    websocket.Upgrader
 	usecase     *usecase.DemoUsecase
 	sessionRepo *repository.InMemorySessionRepository
-	config      *entity.DemoConfig
+	config      *config.DemoConfig
 	connections map[string]*websocket.Conn
 }
 
@@ -61,7 +62,7 @@ type ValidationResponse struct {
 	Error       string `json:"error,omitempty"`
 }
 
-func NewDemoWebSocketHandler(demoConfig *entity.DemoConfig, sessionRepo *repository.InMemorySessionRepository) *DemoWebSocketHandler {
+func NewDemoWebSocketHandler(demoConfig *config.DemoConfig, sessionRepo *repository.InMemorySessionRepository) *DemoWebSocketHandler {
 	usecase := usecase.NewDemoUsecase(sessionRepo, demoConfig)
 
 	return &DemoWebSocketHandler{
@@ -69,7 +70,7 @@ func NewDemoWebSocketHandler(demoConfig *entity.DemoConfig, sessionRepo *reposit
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
-				return true // Allow all origins for demo purposes
+				return true
 			},
 		},
 		usecase:     usecase,
@@ -217,7 +218,7 @@ func (h *DemoWebSocketHandler) handleChallengeRequest(conn *websocket.Conn, msg 
 		return
 	}
 
-	complexity := int32(50)
+	complexity := h.config.DefaultComplexity
 	if msg.Data != nil {
 		if comp, ok := msg.Data["complexity"].(float64); ok {
 			complexity = int32(comp)

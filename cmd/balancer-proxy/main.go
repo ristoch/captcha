@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"captcha-service/internal/config"
-	"captcha-service/internal/domain/entity"
 	httpDelivery "captcha-service/internal/transport/http"
 )
 
@@ -20,17 +19,14 @@ func main() {
 		log.Fatalf("Failed to load balancer-proxy config: %v", err)
 	}
 
-	entityConfig := &entity.Config{
+	entityConfig := &config.ServiceConfig{
 		MaxAttempts:      cfg.MaxAttempts,
 		BlockDurationMin: cfg.BlockDurationMin,
+		ComplexityMedium: cfg.MinOverlapPct,
 	}
 	proxy := httpDelivery.NewBalancerProxy(entityConfig)
 
-	balancerAddr := os.Getenv("BALANCER_ADDRESS")
-	if balancerAddr == "" {
-		balancerAddr = "localhost:9090"
-	}
-	if err := proxy.ConnectToBalancer(balancerAddr); err != nil {
+	if err := proxy.ConnectToBalancer(cfg.BalancerAddress); err != nil {
 		log.Fatalf("Failed to connect to balancer: %v", err)
 	}
 
@@ -44,40 +40,16 @@ func main() {
 		}
 	}()
 
-	mux := http.NewServeMux()
-
-	corsHandler := func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-			h.ServeHTTP(w, r)
-		})
-	}
-
-	mux.Handle("/backgrounds/", corsHandler(http.StripPrefix("/backgrounds/", http.FileServer(http.Dir("./backgrounds/")))))
-	mux.HandleFunc("/ws", proxy.WebSocketHandler)
-
-	mux.HandleFunc("/challenge", proxy.ChallengeHandler)
-	mux.HandleFunc("/api/challenge", proxy.ChallengeHandler)
-	mux.HandleFunc("/api/validate", proxy.ValidateChallengeHandler)
-	mux.HandleFunc("/api/services", proxy.ListServicesHandler)
-	mux.HandleFunc("/api/services/add", proxy.AddServiceHandler)
-	mux.HandleFunc("/api/services/remove", proxy.RemoveServiceHandler)
-	mux.HandleFunc("/api/health", proxy.HealthHandler)
-
-	mux.HandleFunc("/blocked", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "User blocked", http.StatusTooManyRequests)
-	})
+	mux := httpDelivery.SetupBalancerProxyRoutes(proxy, cfg)
 
 	server := &http.Server{
-		Addr:    ":8081",
+		Addr:    ":" + cfg.Port,
 		Handler: mux,
 	}
 
 	go func() {
-		log.Printf("Balancer proxy started on http://localhost:8081")
-		log.Printf("Open http://localhost:8082/demo in your browser")
+		log.Printf("Balancer proxy started on http://%s:%s", cfg.Host, cfg.Port)
+		log.Printf("Open %s in your browser", cfg.DemoURL)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}

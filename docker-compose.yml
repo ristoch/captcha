@@ -29,9 +29,9 @@ services:
     build: .
     container_name: captcha-service-1
     ports:
-      - "8083:8083"
+      - "38000:38000"
     environment:
-      - PORT=8083
+      - PORT=38000
       - HOST=captcha-service-1
       - BALANCER_ADDRESS=balancer:9090
       - CHALLENGE_TYPE=slider-puzzle
@@ -74,9 +74,9 @@ services:
     build: .
     container_name: captcha-service-2
     ports:
-      - "8084:8084"
+      - "38001:38001"
     environment:
-      - PORT=8084
+      - PORT=38001
       - HOST=captcha-service-2
       - BALANCER_ADDRESS=balancer:9090
       - CHALLENGE_TYPE=slider-puzzle
@@ -119,9 +119,9 @@ services:
     build: .
     container_name: captcha-service-3
     ports:
-      - "8085:8085"
+      - "38002:38002"
     environment:
-      - PORT=8085
+      - PORT=38002
       - HOST=captcha-service-3
       - BALANCER_ADDRESS=balancer:9090
       - CHALLENGE_TYPE=slider-puzzle

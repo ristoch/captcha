@@ -11,6 +11,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
 	captchaProto "captcha-service/gen/proto/proto/captcha"
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/service"
 
@@ -37,13 +39,13 @@ type BalancerProxy struct {
 	mu             sync.RWMutex
 	roundRobin     int
 	upgrader       websocket.Upgrader
-	config         *entity.Config
+	config         *config.ServiceConfig
 	sessions       map[string]*entity.UserSession
 	sessionMu      sync.RWMutex
 	globalBlocker  *service.GlobalUserBlocker
 }
 
-func NewBalancerProxy(config *entity.Config) *BalancerProxy {
+func NewBalancerProxy(config *config.ServiceConfig) *BalancerProxy {
 	captchaClients := make([]captchaProto.CaptchaServiceClient, 0)
 	serviceAddrs := make([]string, 0)
 	sessions := make(map[string]*entity.UserSession)
@@ -896,4 +898,40 @@ func (bp *BalancerProxy) isUserBlockedInSession(userID string) (bool, string) {
 	}
 
 	return false, ""
+}
+
+func SetupBalancerProxyRoutes(proxy *BalancerProxy, cfg *config.BalancerProxyConfig) *http.ServeMux {
+	mux := http.NewServeMux()
+
+	corsHandler := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	backgroundsPath, err := filepath.Abs(cfg.BackgroundsPath)
+	if err != nil {
+		log.Printf("Error resolving backgrounds path: %v", err)
+		backgroundsPath = cfg.BackgroundsPath
+	}
+
+	mux.Handle("/backgrounds/", corsHandler(http.StripPrefix("/backgrounds/", http.FileServer(http.Dir(backgroundsPath)))))
+	mux.HandleFunc("/ws", proxy.WebSocketHandler)
+
+	mux.HandleFunc("/challenge", proxy.ChallengeHandler)
+	mux.HandleFunc("/api/challenge", proxy.ChallengeHandler)
+	mux.HandleFunc("/api/validate", proxy.ValidateChallengeHandler)
+	mux.HandleFunc("/api/services", proxy.ListServicesHandler)
+	mux.HandleFunc("/api/services/add", proxy.AddServiceHandler)
+	mux.HandleFunc("/api/services/remove", proxy.RemoveServiceHandler)
+	mux.HandleFunc("/api/health", proxy.HealthHandler)
+
+	mux.HandleFunc("/blocked", func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "User blocked", http.StatusTooManyRequests)
+	})
+
+	return mux
 }

@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/pkg/logger"
 
@@ -14,12 +15,12 @@ import (
 type GlobalUserBlocker struct {
 	blockedUsers  map[string]*entity.BlockedUser
 	mu            sync.RWMutex
-	config        *entity.Config
+	config        *config.ServiceConfig
 	cleanupTicker *time.Ticker
 	stopChan      chan struct{}
 }
 
-func NewGlobalUserBlocker(config *entity.Config) *GlobalUserBlocker {
+func NewGlobalUserBlocker(config *config.ServiceConfig) *GlobalUserBlocker {
 	blocker := &GlobalUserBlocker{
 		blockedUsers: make(map[string]*entity.BlockedUser),
 		config:       config,

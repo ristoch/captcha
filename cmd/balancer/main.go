@@ -12,7 +12,6 @@ import (
 
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
 	"captcha-service/internal/config"
-	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/infrastructure/persistence"
 	"captcha-service/internal/service"
 	"captcha-service/internal/transport/grpc/balancer"
@@ -40,7 +39,7 @@ func main() {
 	instanceRepo := persistence.NewMemoryInstanceRepository()
 	userBlockRepo := persistence.NewMemoryUserBlockRepository()
 
-	entityConfig := &entity.Config{
+	entityConfig := &config.ServiceConfig{
 		MaxAttempts:      cfg.MaxAttempts,
 		BlockDurationMin: cfg.BlockDurationMin,
 		CleanupInterval:  cfg.CleanupInterval,

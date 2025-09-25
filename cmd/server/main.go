@@ -35,44 +35,18 @@ func main() {
 	}
 	defer logger.Get().Sync()
 
-	repo := persistence.NewMemoryOptimizedRepository(10000) // 10k max challenges
+	repo := persistence.NewMemoryOptimizedRepository(int(cfg.MaxChallenges))
 
 	templateEngine := template.NewTemplateEngineService("./templates")
 
-	entityConfig := &entity.Config{
-		Host:                 cfg.Host,
-		Port:                 cfg.Port,
-		BalancerAddress:      cfg.BalancerAddress,
-		LogLevel:             cfg.LogLevel,
-		ChallengeType:        cfg.ChallengeType,
-		ComplexityLow:        cfg.ComplexityLow,
-		ComplexityMedium:     cfg.ComplexityMedium,
-		ComplexityHigh:       cfg.ComplexityHigh,
-		PuzzleSizeLow:        cfg.PuzzleSizeLow,
-		PuzzleSizeMedium:     cfg.PuzzleSizeMedium,
-		PuzzleSizeHigh:       cfg.PuzzleSizeHigh,
-		ToleranceLow:         cfg.ToleranceLow,
-		ToleranceMedium:      cfg.ToleranceMedium,
-		ToleranceHigh:        cfg.ToleranceHigh,
-		ExpirationTimeLow:    cfg.ExpirationTimeLow,
-		ExpirationTimeMedium: cfg.ExpirationTimeMedium,
-		ExpirationTimeHigh:   cfg.ExpirationTimeHigh,
-		MinTimeMs:            cfg.MinTimeMs,
-		MaxTimeMs:            cfg.MaxTimeMs,
-		MaxTimeoutAttempts:   cfg.MaxTimeoutAttempts,
-		MinOverlapPct:        cfg.MinOverlapPct,
-		CleanupInterval:      cfg.CleanupInterval,
-		StaleThreshold:       cfg.StaleThreshold,
-		MaxAttempts:          cfg.MaxAttempts,
-		BlockDurationMin:     cfg.BlockDurationMin,
-	}
+	entityConfig := cfg
 
 	registry := service.NewGeneratorRegistry()
 	registry.Register(entity.ChallengeTypeSliderPuzzle, service.NewSliderPuzzleGenerator(entityConfig, repo, templateEngine))
 
 	captchaService := service.NewCaptchaService(repo, registry, nil, entityConfig)
 
-	portFinder := port.NewPortFinder(8080, 8090)
+	portFinder := port.NewPortFinder(int(cfg.MinPort), int(cfg.MaxPort))
 	availablePort, err := portFinder.FindAvailablePortWithRetry(3, 1*time.Second)
 	if err != nil {
 		logger.Fatal("Failed to find available port", zap.Error(err))
@@ -108,7 +82,7 @@ func main() {
 	logger.Info("Captcha service started",
 		zap.Int("port", availablePort),
 		zap.String("log_level", cfg.LogLevel),
-		zap.String("balancer_addr", "localhost:9090"))
+		zap.String("balancer_addr", cfg.BalancerAddr))
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
@@ -116,7 +90,7 @@ func main() {
 	<-sigChan
 	logger.Info("Shutting down...")
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Duration(cfg.ShutdownTimeoutSec)*time.Second)
 	defer shutdownCancel()
 
 	if err := balancerClient.Stop(shutdownCtx); err != nil {

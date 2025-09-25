@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/dto"
 	"captcha-service/internal/domain/entity"
 )
@@ -15,13 +16,13 @@ type TemplateEngine interface {
 }
 
 type SliderPuzzleGenerator struct {
-	config         *entity.Config
+	config         *config.CaptchaConfig
 	repo           ChallengeRepository
 	templateEngine TemplateEngine
 	rand           *rand.Rand
 }
 
-func NewSliderPuzzleGenerator(config *entity.Config, repo ChallengeRepository, templateEngine TemplateEngine) *SliderPuzzleGenerator {
+func NewSliderPuzzleGenerator(config *config.CaptchaConfig, repo ChallengeRepository, templateEngine TemplateEngine) *SliderPuzzleGenerator {
 	return &SliderPuzzleGenerator{
 		config:         config,
 		repo:           repo,
@@ -112,12 +113,4 @@ func (g *SliderPuzzleGenerator) Validate(answer interface{}, data interface{}) (
 	confidence := g.config.DefaultConfidence
 
 	return isValid, confidence, nil
-}
-
-func (g *SliderPuzzleGenerator) GenerateHTML(challenge *entity.Challenge) (string, error) {
-	if g.templateEngine == nil {
-		return "", fmt.Errorf("template engine not initialized")
-	}
-
-	return g.templateEngine.Render("slider_puzzle", challenge)
 }

@@ -1,5 +1,9 @@
 package config
 
+import (
+	"github.com/caarlos0/env/v11"
+)
+
 type EntityConfig struct {
 	MaxAttempts      int32 `env:"MAX_ATTEMPTS" envDefault:"3"`
 	BlockDurationMin int32 `env:"BLOCK_DURATION_MINUTES" envDefault:"5"`
@@ -32,4 +36,14 @@ type EntityConfig struct {
 	DefaultTargetY    int32 `env:"DEFAULT_TARGET_Y" envDefault:"150"`
 	DefaultTolerance  int32 `env:"DEFAULT_TOLERANCE" envDefault:"10"`
 	DefaultConfidence int32 `env:"DEFAULT_CONFIDENCE" envDefault:"85"`
+}
+
+func LoadEntityConfig() (*EntityConfig, error) {
+	config := &EntityConfig{}
+
+	if err := env.Parse(config); err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }

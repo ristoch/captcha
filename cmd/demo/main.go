@@ -21,35 +21,6 @@ import (
 	"captcha-service/internal/usecase"
 )
 
-func convertEntityConfig(cfg *config.EntityConfig) *entity.Config {
-	return &entity.Config{
-		MaxAttempts:          cfg.MaxAttempts,
-		BlockDurationMin:     cfg.BlockDurationMin,
-		ComplexityLow:        cfg.ComplexityLow,
-		ComplexityMedium:     cfg.ComplexityMedium,
-		ComplexityHigh:       cfg.ComplexityHigh,
-		PuzzleSizeLow:        cfg.PuzzleSizeLow,
-		PuzzleSizeMedium:     cfg.PuzzleSizeMedium,
-		PuzzleSizeHigh:       cfg.PuzzleSizeHigh,
-		ToleranceLow:         cfg.ToleranceLow,
-		ToleranceMedium:      cfg.ToleranceMedium,
-		ToleranceHigh:        cfg.ToleranceHigh,
-		ExpirationTimeLow:    cfg.ExpirationTimeLow,
-		ExpirationTimeMedium: cfg.ExpirationTimeMedium,
-		ExpirationTimeHigh:   cfg.ExpirationTimeHigh,
-		MinTimeMs:            cfg.MinTimeMs,
-		MaxTimeMs:            cfg.MaxTimeMs,
-		MaxTimeoutAttempts:   cfg.MaxTimeoutAttempts,
-		MinOverlapPct:        cfg.MinOverlapPct,
-		CleanupInterval:      cfg.CleanupInterval,
-		StaleThreshold:       cfg.StaleThreshold,
-		DefaultTargetX:       cfg.DefaultTargetX,
-		DefaultTargetY:       cfg.DefaultTargetY,
-		DefaultTolerance:     cfg.DefaultTolerance,
-		DefaultConfidence:    cfg.DefaultConfidence,
-	}
-}
-
 func main() {
 	cfg, err := config.LoadDemoConfig()
 	if err != nil {
@@ -58,17 +29,13 @@ func main() {
 
 	sessionRepo := repository.NewInMemorySessionRepository()
 	_ = cache.NewSessionCache(cfg.MaxSessions)
-	demoConfig := &entity.DemoConfig{
-		MaxAttempts:   cfg.MaxAttempts,
-		BlockDuration: cfg.BlockDuration,
-	}
-	demoUsecase := usecase.NewDemoUsecase(sessionRepo, demoConfig)
+	demoUsecase := usecase.NewDemoUsecase(sessionRepo, cfg)
 
-	entityConfigFromEnv, err := config.LoadConfigFromEnv[config.EntityConfig]()
+	entityConfigFromEnv, err := config.LoadCaptchaServiceConfig()
 	if err != nil {
-		log.Fatalf("Failed to load entity config: %v", err)
+		log.Fatalf("Failed to load captcha config: %v", err)
 	}
-	entityConfig := convertEntityConfig(entityConfigFromEnv)
+	entityConfig := entityConfigFromEnv
 
 	challengeRepo := persistence.NewMemoryOptimizedRepository(cfg.MaxChallenges)
 
@@ -81,7 +48,7 @@ func main() {
 	tmpl := template.New("demo")
 
 	demoHandler := httpTransport.NewDemoHandler(demoUsecase, captchaService, tmpl, cfg)
-	wsHandler := wsTransport.NewDemoWebSocketHandler(demoConfig, sessionRepo)
+	wsHandler := wsTransport.NewDemoWebSocketHandler(cfg, sessionRepo)
 
 	router := httpTransport.NewRouter(demoHandler, wsHandler)
 	mux := router.SetupRoutes()

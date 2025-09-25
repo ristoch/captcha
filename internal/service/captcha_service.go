@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/pkg/logger"
 
@@ -23,22 +24,27 @@ type CaptchaService struct {
 	repo          ChallengeRepository
 	registry      *GeneratorRegistry
 	wsSender      WebSocketSender
-	config        *entity.Config
+	config        *config.CaptchaConfig
 	userAttempts  *entity.UserAttempts
 	globalBlocker *GlobalUserBlocker
 }
 
-func NewCaptchaService(repo ChallengeRepository, registry *GeneratorRegistry, wsSender WebSocketSender, config *entity.Config) *CaptchaService {
+func NewCaptchaService(repo ChallengeRepository, registry *GeneratorRegistry, wsSender WebSocketSender, cfg *config.CaptchaConfig) *CaptchaService {
 	return &CaptchaService{
 		repo:     repo,
 		registry: registry,
 		wsSender: wsSender,
-		config:   config,
-		userAttempts: entity.NewUserAttempts(&entity.DemoConfig{
-			MaxAttempts:   config.MaxAttempts,
-			BlockDuration: config.BlockDurationMin,
+		config:   cfg,
+		userAttempts: entity.NewUserAttempts(&config.DemoConfig{
+			MaxAttempts:   cfg.MaxAttempts,
+			BlockDuration: cfg.BlockDurationMin,
 		}),
-		globalBlocker: NewGlobalUserBlocker(config),
+		globalBlocker: NewGlobalUserBlocker(&config.ServiceConfig{
+			MaxAttempts:      cfg.MaxAttempts,
+			BlockDurationMin: cfg.BlockDurationMin,
+			CleanupInterval:  cfg.CleanupInterval,
+			StaleThreshold:   cfg.StaleThreshold,
+		}),
 	}
 }
 

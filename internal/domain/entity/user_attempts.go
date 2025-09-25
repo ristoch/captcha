@@ -3,12 +3,14 @@ package entity
 import (
 	"sync"
 	"time"
+
+	"captcha-service/internal/config"
 )
 
 type UserAttempts struct {
 	mu            sync.RWMutex
 	attempts      map[string]*UserAttempt
-	config        *DemoConfig
+	config        *config.DemoConfig
 	cleanupTicker *time.Ticker
 	stopChan      chan struct{}
 }
@@ -21,7 +23,7 @@ type UserAttempt struct {
 	ChallengeID  string
 }
 
-func NewUserAttempts(config *DemoConfig) *UserAttempts {
+func NewUserAttempts(config *config.DemoConfig) *UserAttempts {
 	ua := &UserAttempts{
 		attempts: make(map[string]*UserAttempt),
 		config:   config,

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Captcha Demo - Advanced Testing</title>
+    <title>Captcha Demo</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -13,7 +13,7 @@
             background: #f5f5f5;
         }
         .container { 
-            max-width: 1200px; 
+            max-width: 800px; 
             margin: 0 auto; 
             background: white;
             border-radius: 12px;
@@ -27,31 +27,7 @@
             text-align: center;
         }
         .header h1 { margin: 0; font-size: 2.5em; }
-        .header p { margin: 10px 0 0; opacity: 0.9; }
         .content { padding: 30px; }
-        .info { 
-            background: #f8f9fa; 
-            padding: 20px; 
-            margin: 20px 0; 
-            border-radius: 8px;
-            border-left: 4px solid #007bff;
-        }
-        .status { 
-            background: #d4edda; 
-            padding: 15px; 
-            margin: 15px 0; 
-            border-radius: 8px; 
-            border: 1px solid #c3e6cb;
-            display: none;
-        }
-        .error { 
-            background: #f8d7da; 
-            padding: 15px; 
-            margin: 15px 0; 
-            border-radius: 8px; 
-            border: 1px solid #f5c6cb;
-            display: none;
-        }
         .captcha-container { 
             border: 2px solid #e9ecef; 
             padding: 20px; 
@@ -64,6 +40,7 @@
             gap: 15px;
             margin: 20px 0;
             flex-wrap: wrap;
+            justify-content: center;
         }
         .btn {
             padding: 10px 20px;
@@ -77,104 +54,54 @@
         }
         .btn-primary { background: #007bff; color: white; }
         .btn-primary:hover { background: #0056b3; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-success:hover { background: #1e7e34; }
-        .btn-warning { background: #ffc107; color: #212529; }
-        .btn-warning:hover { background: #e0a800; }
-        .btn-info { background: #17a2b8; color: white; }
-        .btn-info:hover { background: #138496; }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+        .btn-active { background: #28a745; color: white; }
+        .btn-active:hover { background: #1e7e34; }
+        .complexity-slider {
             margin: 20px 0;
-        }
-        .stat-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
             text-align: center;
-            border: 1px solid #e9ecef;
         }
-        .stat-value {
-            font-size: 2em;
+        .complexity-slider label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        .complexity-slider input[type="range"] {
+            width: 300px;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        .complexity-slider input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+        }
+        .complexity-value {
+            margin-top: 10px;
+            font-size: 18px;
             font-weight: bold;
             color: #007bff;
         }
-        .stat-label {
-            color: #6c757d;
-            font-size: 0.9em;
-        }
-        .performance-test {
-            background: #e7f3ff;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            border: 1px solid #b3d9ff;
-        }
-        .log-container {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 15px;
-            margin: 20px 0;
-            max-height: 300px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-        .log-entry {
-            margin: 5px 0;
-            padding: 5px;
-            border-radius: 4px;
-        }
-        .log-info { background: #d1ecf1; color: #0c5460; }
-        .log-success { background: #d4edda; color: #155724; }
-        .log-error { background: #f8d7da; color: #721c24; }
-        .log-warning { background: #fff3cd; color: #856404; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🧩 Captcha Demo</h1>
-            <p>Advanced Testing & Performance Monitoring</p>
+            <p>Test the slider puzzle captcha</p>
         </div>
         
         <div class="content">
-            <div class="info">
-                <h3>Challenge Information</h3>
-                <p><strong>Challenge ID:</strong> <code>{{.ChallengeID}}</code></p>
-                <p><strong>Complexity:</strong> {{.Complexity}}</p>
-                <p><strong>HTML Size:</strong> {{.HTMLSize}} characters</p>
-                <p><strong>Generated:</strong> <span id="generated-time"></span></p>
-            </div>
-
-            <div id="status" class="status">
-                <strong>Status:</strong> <span id="status-text">Connecting...</span>
-            </div>
-            
-            <div id="error" class="error">
-                <strong>Error:</strong> <span id="error-text"></span>
-            </div>
-
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="ws-status">❌</div>
-                    <div class="stat-label">WebSocket</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="events-count">0</div>
-                    <div class="stat-label">Events</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="response-time">0ms</div>
-                    <div class="stat-label">Response Time</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="success-rate">0%</div>
-                    <div class="stat-label">Success Rate</div>
-                </div>
+            <div class="complexity-slider">
+                <label for="complexity-range">Complexity Level:</label>
+                <input type="range" id="complexity-range" min="1" max="100" value="{{.Complexity}}" step="1">
+                <div class="complexity-value" id="complexity-value">{{.Complexity}}</div>
             </div>
 
             <div class="captcha-container">
@@ -183,28 +110,10 @@
             </div>
 
             <div class="controls">
-                <a href="/demo?complexity=10" class="btn btn-primary">Low Complexity (10)</a>
-                <a href="/demo?complexity=50" class="btn btn-primary">Medium Complexity (50)</a>
-                <a href="/demo?complexity=90" class="btn btn-primary">High Complexity (90)</a>
-                <button onclick="createChallengeViaWebSocket()" class="btn btn-primary">Create Challenge (WebSocket)</button>
-                <button onclick="runPerformanceTest()" class="btn btn-success">Performance Test</button>
-                <button onclick="clearLogs()" class="btn btn-warning">Clear Logs</button>
-                <button onclick="reconnectWebSocket()" class="btn btn-info">Reconnect WS</button>
-            </div>
-
-            <div class="performance-test">
-                <h3>Performance Testing</h3>
-                <p>Test the captcha service performance with different loads:</p>
-                <div style="margin: 10px 0;">
-                    <label>Iterations: <input type="number" id="iterations" value="100" min="1" max="1000" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></label>
-                    <label style="margin-left: 15px;">Concurrency: <input type="number" id="concurrency" value="10" min="1" max="50" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></label>
-                </div>
-                <div id="performance-results" style="margin-top: 15px;"></div>
-            </div>
-
-            <div class="log-container">
-                <h4>Event Log</h4>
-                <div id="log-entries"></div>
+                <a href="/demo?complexity=10" class="btn btn-primary">Low (10)</a>
+                <a href="/demo?complexity=50" class="btn btn-primary">Medium (50)</a>
+                <a href="/demo?complexity=90" class="btn btn-primary">High (90)</a>
+                <button onclick="createNewChallenge()" class="btn btn-primary">New Challenge</button>
             </div>
         </div>
     </div>
@@ -213,178 +122,78 @@
         let ws = null;
         let currentChallengeId = '{{.ChallengeID}}';
         let userId = 'demo_user';
-        let eventCount = 0;
-        let successCount = 0;
-        let totalResponseTime = 0;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Demo page loaded, initializing...');
-            document.getElementById('generated-time').textContent = new Date().toLocaleString();
             connectWebSocket();
+            setupComplexitySlider();
         });
+
+        // Setup complexity slider
+        function setupComplexitySlider() {
+            const slider = document.getElementById('complexity-range');
+            const value = document.getElementById('complexity-value');
+            
+            slider.addEventListener('input', function() {
+                value.textContent = this.value;
+            });
+            
+            slider.addEventListener('change', function() {
+                const complexity = this.value;
+                window.location.href = `/demo?complexity=${complexity}`;
+            });
+        }
 
         // WebSocket connection
         function connectWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
             console.log('Connecting to WebSocket:', wsUrl);
             
-            try {
-                ws = new WebSocket(wsUrl);
-                
-                ws.onopen = function() {
-                    console.log('WebSocket connected successfully');
-                    log('WebSocket connected', 'success');
-                    updateWSStatus('✅');
-                    showStatus('Connected to WebSocket', 'success');
-                };
-                
-                ws.onmessage = function(event) {
-                    try {
-                        console.log('WebSocket message received:', event.data);
-                        const data = JSON.parse(event.data);
-                        handleWebSocketMessage(data);
-                    } catch (e) {
-                        console.error('Failed to parse WebSocket message:', e);
-                        log('Failed to parse WebSocket message: ' + e.message, 'error');
-                    }
-                };
-                
-                ws.onclose = function() {
-                    console.log('WebSocket disconnected');
-                    log('WebSocket disconnected', 'warning');
-                    updateWSStatus('❌');
-                    showStatus('WebSocket disconnected', 'error');
-                };
-                
-                ws.onerror = function(error) {
-                    console.error('WebSocket error:', error);
-                    log('WebSocket error: ' + error, 'error');
-                    updateWSStatus('❌');
-                    showStatus('WebSocket error', 'error');
-                };
-            } catch (e) {
-                log('Failed to create WebSocket connection: ' + e.message, 'error');
-                updateWSStatus('❌');
-            }
-        }
-
-        function reconnectWebSocket() {
-            if (ws) {
-                ws.close();
-            }
-            connectWebSocket();
-        }
-
-        function createChallengeViaWebSocket() {
-            console.log('Creating challenge via WebSocket...');
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                console.error('WebSocket not connected');
-                showStatus('WebSocket not connected', 'error');
-                return;
-            }
+            ws = new WebSocket(wsUrl);
             
-            const complexity = getComplexityFromURL();
-            console.log('Sending challenge request with complexity:', complexity);
-            sendWebSocketMessage('challenge_request', {
-                challenge_type: 'slider-puzzle',
-                complexity: complexity
-            });
-        }
-
-        function getComplexityFromURL() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const complexity = urlParams.get('complexity');
-            return complexity ? parseInt(complexity) : 50;
-        }
-
-        function validateChallengeViaWebSocket(x, y) {
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                showStatus('WebSocket not connected', 'error');
-                return;
-            }
+            ws.onopen = function() {
+                console.log('WebSocket connected successfully');
+            };
             
-            if (!currentChallengeId) {
-                showStatus('No active challenge', 'error');
-                return;
-            }
+            ws.onmessage = function(event) {
+                console.log('WebSocket message received:', event.data);
+                try {
+                    const data = JSON.parse(event.data);
+                    handleWebSocketMessage(data);
+                } catch (e) {
+                    console.error('Failed to parse WebSocket message:', e);
+                }
+            };
             
-            sendWebSocketMessage('validate_challenge', {
-                challenge_id: currentChallengeId,
-                answer: { x: x, y: y }
-            });
+            ws.onclose = function() {
+                console.log('WebSocket connection closed');
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
         }
 
+        // Handle WebSocket messages
         function handleWebSocketMessage(data) {
-            eventCount++;
-            updateEventCount();
-            
             console.log('Handling WebSocket message:', data);
-            log(`Received: ${data.type} (${JSON.stringify(data)})`, 'info');
             
-            switch (data.type) {
+            switch(data.type) {
                 case 'connected':
-                    console.log('WebSocket connected for user:', data.data.user_id);
-                    showStatus('Connected to WebSocket', 'success');
-                    log('Connected to WebSocket for user: ' + data.data.user_id, 'success');
+                    console.log('WebSocket connected for user:', data.user_id);
                     break;
-                    
-                case 'challenge_response':
-                    console.log('Challenge response received:', data);
-                    showStatus('Challenge created successfully', 'success');
-                    if (data.data && data.data.html) {
-                        document.getElementById('captcha-iframe').srcdoc = data.data.html;
-                        currentChallengeId = data.challenge_id;
-                        log('Challenge created: ' + currentChallengeId, 'success');
-                    }
+                case 'challenge_created':
+                    console.log('Challenge created:', data.data);
+                    currentChallengeId = data.data.challenge_id;
                     break;
-                    
-                case 'validation_response':
-                    console.log('Validation response received:', data);
-                    if (data.data && data.data.valid) {
-                        successCount++;
-                        updateSuccessRate();
-                        showStatus('Challenge solved successfully!', 'success');
-                        log('Challenge solved with confidence: ' + data.data.confidence, 'success');
-                    } else {
-                        showStatus('Challenge failed. Try again.', 'error');
-                        log('Challenge failed', 'error');
-                    }
-                    break;
-                    
-                case 'error':
-                    console.error('WebSocket error:', data.data.error);
-                    showStatus('Error: ' + data.data.error, 'error');
-                    log('Error: ' + data.data.error, 'error');
-                    break;
-                    
-                case 'user_blocked':
-                    console.log('User blocked:', data.data.reason);
-                    showStatus('User is blocked: ' + data.data.reason, 'error');
-                    log('User blocked: ' + data.data.reason, 'error');
-                    
-                    // Disable all captcha interactions
-                    const captchaElements = document.querySelectorAll('canvas, input[type="range"], .piece');
-                    captchaElements.forEach(el => {
-                        el.style.pointerEvents = 'none';
-                        el.style.opacity = '0.5';
-                    });
-                    
-                    // Show blocking overlay
-                    showBlockedMessage(data.data.reason);
-                    break;
-                    
                 case 'captcha_event_ack':
-                    console.log('Captcha event acknowledged:', data.data.message);
-                    log('Captcha event acknowledged: ' + data.data.message, 'success');
+                    console.log('Captcha event acknowledged');
                     break;
-                    
                 case 'new_challenge_data':
                     console.log('New challenge data received:', data.data);
-                    log('New challenge data received', 'info');
-                    
-                    // Send new challenge data to iframe
                     const iframe = document.getElementById('captcha-iframe');
                     if (iframe && iframe.contentWindow) {
                         iframe.contentWindow.postMessage({
@@ -393,231 +202,41 @@
                         }, '*');
                     }
                     break;
-                    
+                case 'error':
+                    console.error('WebSocket error:', data.data.error);
+                    break;
                 default:
-                    console.log('Unknown message type:', data.type, data);
-                    log(`Unknown message type: ${data.type}`, 'warning');
+                    console.log('Unknown message type:', data.type);
             }
         }
 
-        function sendWebSocketMessage(type, data = {}) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
+        // Create new challenge
+        function createNewChallenge() {
+            const complexity = document.getElementById('complexity-range').value;
+            window.location.href = `/demo?complexity=${complexity}`;
+        }
+
+        // Handle iframe messages
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'captcha:sendData') {
+                console.log('Received message from iframe:', event.data);
+                
                 const message = {
-                    type: type,
+                    type: 'captcha_event',
                     challenge_id: currentChallengeId,
                     user_id: userId,
-                    data: data
+                    data: {
+                        eventType: event.data.eventType,
+                        ...event.data.data
+                    }
                 };
                 
-                console.log('Sending WebSocket message:', message);
-                const startTime = performance.now();
-                ws.send(JSON.stringify(message));
-                
-                // Calculate response time (simplified)
-                setTimeout(() => {
-                    const responseTime = performance.now() - startTime;
-                    totalResponseTime += responseTime;
-                    updateResponseTime();
-                }, 100);
-                
-                log(`Sent: ${type}`, 'info');
-            } else {
-                console.error('WebSocket not connected, cannot send message');
-                log('WebSocket not connected', 'error');
-            }
-        }
-
-        // Performance testing
-        async function runPerformanceTest() {
-            const iterations = parseInt(document.getElementById('iterations').value);
-            const concurrency = parseInt(document.getElementById('concurrency').value);
-            
-            log(`Starting performance test: ${iterations} iterations, ${concurrency} concurrency`, 'info');
-            
-            const resultsDiv = document.getElementById('performance-results');
-            resultsDiv.innerHTML = '<div style="text-align: center; padding: 20px;">Running test...</div>';
-            
-            try {
-                const response = await fetch(`/performance?iterations=${iterations}&concurrency=${concurrency}`);
-                const results = await response.json();
-                
-                resultsDiv.innerHTML = `
-                    <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-                        <h4>Performance Test Results</h4>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 15px 0;">
-                            <div><strong>RPS:</strong> ${results.rps.toFixed(2)}</div>
-                            <div><strong>Duration:</strong> ${results.duration_ms}ms</div>
-                            <div><strong>Success Rate:</strong> ${results.success_rate.toFixed(1)}%</div>
-                            <div><strong>Success Count:</strong> ${results.success_count}</div>
-                            <div><strong>Error Count:</strong> ${results.error_count}</div>
-                        </div>
-                        <div style="margin-top: 15px;">
-                            <div style="background: #e9ecef; height: 20px; border-radius: 10px; overflow: hidden;">
-                                <div style="background: #28a745; height: 100%; width: ${results.success_rate}%; transition: width 0.3s;"></div>
-                            </div>
-                            <div style="text-align: center; margin-top: 5px; font-size: 0.9em; color: #6c757d;">
-                                Success Rate: ${results.success_rate.toFixed(1)}%
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                log(`Performance test completed: ${results.rps.toFixed(2)} RPS, ${results.success_rate.toFixed(1)}% success rate`, 'success');
-            } catch (error) {
-                log('Performance test failed: ' + error.message, 'error');
-                resultsDiv.innerHTML = '<div style="color: red; padding: 20px;">Test failed: ' + error.message + '</div>';
-            }
-        }
-
-        // UI updates
-        function updateWSStatus(status) {
-            document.getElementById('ws-status').textContent = status;
-        }
-
-        function updateEventCount() {
-            document.getElementById('events-count').textContent = eventCount;
-        }
-
-        function updateResponseTime() {
-            const avgTime = eventCount > 0 ? (totalResponseTime / eventCount).toFixed(0) : 0;
-            document.getElementById('response-time').textContent = avgTime + 'ms';
-        }
-
-        function updateSuccessRate() {
-            const rate = eventCount > 0 ? ((successCount / eventCount) * 100).toFixed(0) : 0;
-            document.getElementById('success-rate').textContent = rate + '%';
-        }
-
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('status');
-            const statusText = document.getElementById('status-text');
-            const errorDiv = document.getElementById('error');
-            const errorText = document.getElementById('error-text');
-            
-            if (type === 'error') {
-                statusDiv.style.display = 'none';
-                errorDiv.style.display = 'block';
-                errorText.textContent = message;
-            } else {
-                errorDiv.style.display = 'none';
-                statusDiv.style.display = 'block';
-                statusText.textContent = message;
-                statusDiv.className = 'status ' + (type === 'success' ? 'log-success' : 'log-info');
-            }
-        }
-
-        function log(message, type = 'info') {
-            // Log to browser console
-            const timestamp = new Date().toLocaleTimeString();
-            const consoleMessage = `[${timestamp}] ${message}`;
-            
-            switch (type) {
-                case 'error':
-                    console.error(consoleMessage);
-                    break;
-                case 'warning':
-                    console.warn(consoleMessage);
-                    break;
-                case 'success':
-                    console.log('%c' + consoleMessage, 'color: green; font-weight: bold;');
-                    break;
-                default:
-                    console.log(consoleMessage);
-            }
-            
-            // Also add to DOM log
-            const logEntries = document.getElementById('log-entries');
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry log-' + type;
-            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
-            logEntries.appendChild(logEntry);
-            logEntries.scrollTop = logEntries.scrollHeight;
-        }
-
-        function clearLogs() {
-            document.getElementById('log-entries').innerHTML = '';
-            eventCount = 0;
-            successCount = 0;
-            totalResponseTime = 0;
-            updateEventCount();
-            updateResponseTime();
-            updateSuccessRate();
-        }
-
-        function showBlockedMessage(message) {
-            console.error('User blocked:', message);
-            
-            // Create blocking overlay
-            const overlay = document.createElement('div');
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.8);
-                z-index: 10000;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                font-family: system-ui, -apple-system, Arial, sans-serif;
-            `;
-            
-            const blockDialog = document.createElement('div');
-            blockDialog.style.cssText = `
-                background: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-                text-align: center;
-                max-width: 400px;
-                margin: 20px;
-            `;
-            
-            blockDialog.innerHTML = `
-                <div style="font-size: 24px; color: #d32f2f; margin-bottom: 15px;">🚫</div>
-                <h2 style="color: #d32f2f; margin: 0 0 15px 0; font-size: 20px;">Доступ заблокирован</h2>
-                <p style="color: #666; margin: 0 0 20px 0; line-height: 1.4;">${message}</p>
-                <p style="color: #999; font-size: 14px; margin: 0;">Попробуйте снова через несколько минут</p>
-            `;
-            
-            overlay.appendChild(blockDialog);
-            document.body.appendChild(overlay);
-        }
-
-        // Listen for messages from iframe
-        window.addEventListener('message', function(event) {
-            if (event.data && event.data.type === 'captcha:sendData') {
-                console.log('Received message from iframe:', event.data);
-                log(`Iframe message: ${event.data.eventType}`, 'info');
-                
-                // Handle different event types
-                switch (event.data.eventType) {
-                    case 'captchaSolved':
-                        successCount++;
-                        updateSuccessRate();
-                        showStatus('Captcha solved!', 'success');
-                        break;
-                    case 'captchaFailed':
-                        showStatus(`Captcha failed (attempt ${event.data.data.attempts}/${event.data.data.maxAttempts})`, 'error');
-                        break;
-                    case 'userBlocked':
-                        showStatus('User blocked due to too many attempts', 'error');
-                        break;
-                    case 'newChallenge':
-                        showStatus('New challenge loaded', 'info');
-                        break;
-                    case 'captchaLoaded':
-                        showStatus('Captcha loaded', 'success');
-                        break;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify(message));
+                    console.log('Sent WebSocket message:', message);
+                } else {
+                    console.error('WebSocket not connected');
                 }
-                
-                sendWebSocketMessage('captcha_event', {
-                    eventType: event.data.eventType,
-                    challengeId: event.data.challengeId,
-                    userId: event.data.userId,
-                    data: event.data.data
-                });
             }
         });
     </script>

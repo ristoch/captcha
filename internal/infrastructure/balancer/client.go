@@ -7,6 +7,7 @@ import (
 	"time"
 
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
+	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 
 	"google.golang.org/grpc"
@@ -14,7 +15,7 @@ import (
 )
 
 type Client struct {
-	config         *entity.Config
+	config         *config.CaptchaConfig
 	conn           *grpc.ClientConn
 	balancerClient protoBalancer.BalancerServiceClient
 	stream         protoBalancer.BalancerService_RegisterInstanceClient
@@ -23,7 +24,7 @@ type Client struct {
 	port           int32
 }
 
-func NewClient(cfg *entity.Config) *Client {
+func NewClient(cfg *config.CaptchaConfig) *Client {
 	return &Client{
 		config:     cfg,
 		instanceID: generateInstanceID(),

@@ -24,6 +24,11 @@ type DemoConfig struct {
 	CleanupIntervalHours   int `env:"CLEANUP_INTERVAL_HOURS" envDefault:"1"`
 
 	LogLevel string `env:"LOG_LEVEL" envDefault:"info"`
+
+	DefaultTargetX    int32 `env:"DEFAULT_TARGET_X" envDefault:"200"`
+	DefaultTargetY    int32 `env:"DEFAULT_TARGET_Y" envDefault:"150"`
+	DefaultTolerance  int32 `env:"DEFAULT_TOLERANCE" envDefault:"10"`
+	DefaultConfidence int32 `env:"DEFAULT_CONFIDENCE" envDefault:"85"`
 }
 
 func LoadDemoConfig() (*DemoConfig, error) {
