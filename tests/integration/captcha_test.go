@@ -2,6 +2,7 @@ package integration
 
 import (
 	"bytes"
+	"captcha-service/internal/domain/entity"
 	"context"
 	"encoding/json"
 	"fmt"
