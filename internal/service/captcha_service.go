@@ -4,22 +4,31 @@ import (
 	"context"
 
 	"captcha-service/internal/domain/entity"
-	"captcha-service/internal/domain/interfaces"
 	"captcha-service/pkg/logger"
 
 	"go.uber.org/zap"
 )
 
+type ChallengeRepository interface {
+	SaveChallenge(ctx context.Context, challenge *entity.Challenge) error
+	GetChallenge(ctx context.Context, challengeID string) (*entity.Challenge, error)
+	DeleteChallenge(ctx context.Context, challengeID string) error
+}
+
+type WebSocketSender interface {
+	SendMessage(userID string, message interface{}) error
+}
+
 type CaptchaService struct {
-	repo          interfaces.ChallengeRepository
+	repo          ChallengeRepository
 	registry      *GeneratorRegistry
-	wsSender      interfaces.WebSocketSender
+	wsSender      WebSocketSender
 	config        *entity.Config
 	userAttempts  *entity.UserAttempts
 	globalBlocker *GlobalUserBlocker
 }
 
-func NewCaptchaService(repo interfaces.ChallengeRepository, registry *GeneratorRegistry, wsSender interfaces.WebSocketSender, config *entity.Config) *CaptchaService {
+func NewCaptchaService(repo ChallengeRepository, registry *GeneratorRegistry, wsSender WebSocketSender, config *entity.Config) *CaptchaService {
 	return &CaptchaService{
 		repo:     repo,
 		registry: registry,

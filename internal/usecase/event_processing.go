@@ -7,26 +7,67 @@ import (
 	"time"
 
 	"captcha-service/internal/domain/entity"
-	"captcha-service/internal/domain/interfaces"
 	"captcha-service/pkg/logger"
 
 	"go.uber.org/zap"
 )
 
+type EventProcessor interface {
+	ProcessEvent(event *entity.BinaryEvent) (*entity.EventResult, error)
+}
+
+type EventStreamManager interface {
+	CreateStream(userID string) (EventStream, error)
+	CloseStream(userID string) error
+	GetStream(userID string) (EventStream, error)
+}
+
+type EventPublisher interface {
+	Publish(event *entity.BinaryEvent) error
+	Subscribe(userID string, handler EventHandler) error
+	Unsubscribe(userID string) error
+}
+
+type EventStream interface {
+	Send(event *entity.BinaryEvent) error
+	Receive() (*entity.BinaryEvent, error)
+	Close() error
+}
+
+type EventHandler interface {
+	Handle(event *entity.BinaryEvent) error
+}
+
+type ChallengeRepository interface {
+	SaveChallenge(ctx context.Context, challenge *entity.Challenge) error
+	GetChallenge(ctx context.Context, challengeID string) (*entity.Challenge, error)
+	DeleteChallenge(ctx context.Context, challengeID string) error
+}
+
+type GeneratorRegistry interface {
+	Get(challengeType string) (ChallengeGenerator, bool)
+	Register(challengeType string, generator ChallengeGenerator)
+}
+
+type ChallengeGenerator interface {
+	Generate(ctx context.Context, complexity int32, userID string) (*entity.Challenge, error)
+	Validate(answer interface{}, data interface{}) (bool, int32, error)
+}
+
 type EventProcessingUseCase struct {
-	eventProcessor    interfaces.EventProcessor
-	eventStreamMgr    interfaces.EventStreamManager
-	eventPublisher    interfaces.EventPublisher
-	challengeRepo     interfaces.ChallengeRepository
-	generatorRegistry interfaces.GeneratorRegistry
+	eventProcessor    EventProcessor
+	eventStreamMgr    EventStreamManager
+	eventPublisher    EventPublisher
+	challengeRepo     ChallengeRepository
+	generatorRegistry GeneratorRegistry
 }
 
 func NewEventProcessingUseCase(
-	eventProcessor interfaces.EventProcessor,
-	eventStreamMgr interfaces.EventStreamManager,
-	eventPublisher interfaces.EventPublisher,
-	challengeRepo interfaces.ChallengeRepository,
-	generatorRegistry interfaces.GeneratorRegistry,
+	eventProcessor EventProcessor,
+	eventStreamMgr EventStreamManager,
+	eventPublisher EventPublisher,
+	challengeRepo ChallengeRepository,
+	generatorRegistry GeneratorRegistry,
 ) *EventProcessingUseCase {
 	return &EventProcessingUseCase{
 		eventProcessor:    eventProcessor,
@@ -119,8 +160,8 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 	}
 
 	switch eventData.Type {
-	case "slider_moved":
-		position, ok := eventData.Data["position"].(float64)
+	case entity.EventTypeSliderMovedStr:
+		position, ok := eventData.Data[entity.FieldPosition].(float64)
 		if !ok {
 			return entity.NewEventResult(false, "Invalid position data", nil), fmt.Errorf("invalid position data")
 		}
@@ -129,9 +170,9 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 		binaryEvent.Y = 0
 		return uc.eventProcessor.ProcessEvent(binaryEvent)
 
-	case "click":
-		x, xOk := eventData.Data["x"].(float64)
-		y, yOk := eventData.Data["y"].(float64)
+	case entity.FieldClick:
+		x, xOk := eventData.Data[entity.FieldX].(float64)
+		y, yOk := eventData.Data[entity.FieldY].(float64)
 		if !xOk || !yOk {
 			return entity.NewEventResult(false, "Invalid click coordinates", nil), fmt.Errorf("invalid click coordinates")
 		}
@@ -140,11 +181,11 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 		binaryEvent.Y = int32(y)
 		return uc.eventProcessor.ProcessEvent(binaryEvent)
 
-	case "challenge_completed":
+	case entity.FieldChallengeCompleted:
 		binaryEvent.Type = entity.EventTypeChallengeCompleted
 		return uc.eventProcessor.ProcessEvent(binaryEvent)
 
-	case "challenge_failed":
+	case entity.FieldChallengeFailed:
 		binaryEvent.Type = entity.EventTypeChallengeFailed
 		return uc.eventProcessor.ProcessEvent(binaryEvent)
 
@@ -153,7 +194,7 @@ func (uc *EventProcessingUseCase) ProcessJSONEvent(ctx context.Context, eventDat
 	}
 }
 
-func (uc *EventProcessingUseCase) CreateEventStream(ctx context.Context, challengeID string) (interfaces.EventStream, error) {
+func (uc *EventProcessingUseCase) CreateEventStream(ctx context.Context, challengeID string) (EventStream, error) {
 	logger.Debug("Creating event stream", zap.String(entity.FieldChallengeID, challengeID))
 
 	_, err := uc.challengeRepo.GetChallenge(ctx, challengeID)

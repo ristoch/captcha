@@ -1,21 +1,29 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
-	"captcha-service/internal/domain/interfaces"
+	"captcha-service/internal/domain/entity"
 	"captcha-service/pkg/logger"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 )
 
-type Handlers struct {
-	captchaService interfaces.CaptchaService
+// CaptchaService defines the interface for captcha service operations
+type CaptchaService interface {
+	CreateChallenge(ctx context.Context, challengeType string, complexity int32, userID string) (*entity.Challenge, error)
+	ValidateChallenge(ctx context.Context, challengeID string, answer interface{}) (bool, int32, error)
+	GetChallenge(ctx context.Context, challengeID string) (*entity.Challenge, error)
 }
 
-func NewHandlers(captchaService interfaces.CaptchaService) *Handlers {
+type Handlers struct {
+	captchaService CaptchaService
+}
+
+func NewHandlers(captchaService CaptchaService) *Handlers {
 	return &Handlers{
 		captchaService: captchaService,
 	}

@@ -6,19 +6,47 @@ import (
 
 	protoBalancer "captcha-service/gen/proto/proto/balancer"
 	"captcha-service/internal/domain/entity"
-	"captcha-service/internal/domain/interfaces"
 	"captcha-service/pkg/logger"
 
 	"go.uber.org/zap"
 )
 
+// InstanceRepository defines the interface for instance persistence operations
+type InstanceRepository interface {
+	SaveInstance(instance *entity.Instance) error
+	GetInstance(id string) (*entity.Instance, error)
+	GetAllInstances() ([]*entity.Instance, error)
+	RemoveInstance(id string) error
+}
+
+// UserBlockRepository defines the interface for user blocking operations
+type UserBlockRepository interface {
+	SaveBlockedUser(blockedUser *entity.BlockedUser) error
+	GetBlockedUser(userID string) (*entity.BlockedUser, error)
+	RemoveBlockedUser(userID string) error
+	GetAllBlockedUsers() ([]*entity.BlockedUser, error)
+	IsUserBlocked(userID string) bool
+	BlockUser(userID string, reason string) error
+	CleanupExpiredBlocks() error
+}
+
+// BalancerServiceInterface defines the interface for balancer service operations
+type BalancerServiceInterface interface {
+	RegisterInstance(req *entity.RegisterInstanceRequest) error
+	GetInstances() ([]*entity.Instance, error)
+	IsUserBlocked(userID string) bool
+	BlockUser(userID string, reason string) error
+	StartCleanup()
+	Stop()
+}
+
 type BalancerService struct {
-	instanceRepo  interfaces.InstanceRepository
-	userBlockRepo interfaces.UserBlockRepository
+	instanceRepo  InstanceRepository
+	userBlockRepo UserBlockRepository
 	config        *entity.Config
 }
 
-func NewBalancerService(instanceRepo interfaces.InstanceRepository, userBlockRepo interfaces.UserBlockRepository, config *entity.Config) interfaces.BalancerService {
+func NewBalancerService(instanceRepo InstanceRepository, userBlockRepo UserBlockRepository, config *entity.Config) BalancerServiceInterface {
 	return &BalancerService{
 		instanceRepo:  instanceRepo,
 		userBlockRepo: userBlockRepo,

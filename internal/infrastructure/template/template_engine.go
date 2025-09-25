@@ -8,11 +8,18 @@ import (
 	"path/filepath"
 
 	"captcha-service/internal/domain/entity"
-	"captcha-service/internal/domain/interfaces"
 	"captcha-service/pkg/logger"
 
 	"go.uber.org/zap"
 )
+
+type NewTemplateData interface {
+	GetData() map[string]interface{}
+}
+
+type TemplateEngine interface {
+	Render(templateName string, data interface{}) (string, error)
+}
 
 type TemplateEngineService struct {
 	templates map[string]*template.Template
@@ -108,10 +115,10 @@ func (tes *TemplateEngineService) RenderDemoPage(ctx context.Context, data *enti
 	}
 
 	templateData := map[string]interface{}{
-		"user_id":      data.UserID,
-		"session_id":   data.SessionID,
+		"user_id":               data.UserID,
+		"session_id":            data.SessionID,
 		entity.FieldChallengeID: data.ChallengeID,
-		"html":         data.HTML,
+		"html":                  data.HTML,
 	}
 
 	return tes.renderTemplate(tmpl, templateData)
@@ -151,4 +158,4 @@ func (tes *TemplateEngineService) Render(templateName string, data interface{}) 
 	return tes.renderTemplate(tmpl, data)
 }
 
-var _ interfaces.TemplateEngine = (*TemplateEngineService)(nil)
+var _ TemplateEngine = (*TemplateEngineService)(nil)

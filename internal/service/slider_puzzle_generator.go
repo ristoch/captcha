@@ -8,17 +8,21 @@ import (
 
 	"captcha-service/internal/domain/dto"
 	"captcha-service/internal/domain/entity"
-	"captcha-service/internal/domain/interfaces"
 )
+
+// TemplateEngine defines the interface for template rendering
+type TemplateEngine interface {
+	Render(templateName string, data interface{}) (string, error)
+}
 
 type SliderPuzzleGenerator struct {
 	config         *entity.Config
-	repo           interfaces.ChallengeRepository
-	templateEngine interfaces.TemplateEngine
+	repo           ChallengeRepository
+	templateEngine TemplateEngine
 	rand           *rand.Rand
 }
 
-func NewSliderPuzzleGenerator(config *entity.Config, repo interfaces.ChallengeRepository, templateEngine interfaces.TemplateEngine) *SliderPuzzleGenerator {
+func NewSliderPuzzleGenerator(config *entity.Config, repo ChallengeRepository, templateEngine TemplateEngine) *SliderPuzzleGenerator {
 	return &SliderPuzzleGenerator{
 		config:         config,
 		repo:           repo,
@@ -33,6 +37,7 @@ func (g *SliderPuzzleGenerator) Generate(ctx context.Context, complexity int32, 
 	}
 
 	canvasWidth := entity.CanvasWidth
+	canvasHeight := entity.CanvasHeight
 
 	var puzzleSize int
 
@@ -44,8 +49,17 @@ func (g *SliderPuzzleGenerator) Generate(ctx context.Context, complexity int32, 
 		puzzleSize = int(g.config.PuzzleSizeHigh)
 	}
 
-	_ = g.rand.Intn(canvasWidth - puzzleSize)
-	_ = g.rand.Intn(entity.CanvasHeight - puzzleSize - entity.PuzzleGapTop) // Avoid top area
+	// Ensure puzzle size doesn't exceed canvas dimensions
+	if puzzleSize > canvasWidth {
+		puzzleSize = canvasWidth - 20 // Leave some margin
+	}
+	if puzzleSize > canvasHeight-entity.PuzzleGapTop {
+		puzzleSize = canvasHeight - entity.PuzzleGapTop - 20 // Leave some margin
+	}
+
+	// Generate random positions
+	targetX := g.rand.Intn(canvasWidth - puzzleSize)
+	targetY := g.rand.Intn(canvasHeight-puzzleSize-entity.PuzzleGapTop) + entity.PuzzleGapTop
 
 	challengeID := fmt.Sprintf("slider_%d", time.Now().UnixNano())
 
@@ -55,9 +69,12 @@ func (g *SliderPuzzleGenerator) Generate(ctx context.Context, complexity int32, 
 		UserID:     userID,
 		Complexity: complexity,
 		Data: entity.SliderPuzzleData{
-			ChallengeData: dto.ChallengeData{},
-			CanvasWidth:   entity.CanvasWidth,
-			CanvasHeight:  entity.CanvasHeight,
+			ChallengeData: dto.ChallengeData{
+				TargetX: targetX,
+				TargetY: targetY,
+			},
+			CanvasWidth:  entity.CanvasWidth,
+			CanvasHeight: entity.CanvasHeight,
 		},
 		ExpiresAt:          time.Now().Add(time.Duration(g.config.ExpirationTimeMedium) * time.Second),
 		CreatedAt:          time.Now(),

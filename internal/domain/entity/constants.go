@@ -21,12 +21,8 @@ const (
 )
 
 const (
-	FieldType           = "type"
 	FieldHTML           = "html"
-	FieldPosition       = "position"
 	FieldTimestamp      = "timestamp"
-	FieldX              = "x"
-	FieldY              = "y"
 	FieldIsCorrect      = "isCorrect"
 	FieldDistance       = "distance"
 	FieldTargetPosition = "targetPosition"
@@ -97,24 +93,46 @@ const (
 	ChallengeTypeDragDrop     = "drag-drop"
 )
 
-// JSON field names
 const (
-	FieldChallengeID   = "challenge_id"
-	FieldUserID        = "user_id"
-	FieldSessionID     = "session_id"
-	FieldEventType     = "event_type"
-	FieldComplexity    = "complexity"
-	FieldChallengeType = "challenge_type"
-	FieldAnswer        = "answer"
+	FieldChallengeID        = "challenge_id"
+	FieldUserID             = "user_id"
+	FieldSessionID          = "session_id"
+	FieldEventType          = "event_type"
+	FieldComplexity         = "complexity"
+	FieldChallengeType      = "challenge_type"
+	FieldAnswer             = "answer"
+	FieldStatus             = "status"
+	FieldInstanceID         = "instance_id"
+	FieldReason             = "reason"
+	FieldBlockedUntil       = "blocked_until"
+	FieldType               = "type"
+	FieldPosition           = "position"
+	FieldX                  = "x"
+	FieldY                  = "y"
+	FieldClick              = "click"
+	FieldChallengeCompleted = "challenge_completed"
+	FieldChallengeFailed    = "challenge_failed"
 )
 
-// Event types
 const (
 	EventTypeCaptchaSolved   = "captchaSolved"
 	EventTypeCaptchaSendData = "captcha:sendData"
 )
 
-// Challenge types for registration
+const (
+	EventTypeSliderMove         = "slider_move"
+	EventTypeValidation         = "validation"
+	EventTypeSliderMovedStr     = "slider_moved"
+	EventTypeFieldEventType     = "eventType"
+	EventTypeValidationComplete = "validation_complete"
+)
+
+const (
+	BalancerEventTypeUserBlocked    = "user_blocked"
+	BalancerEventTypeUserUnblocked  = "user_unblocked"
+	BalancerEventTypeInstanceStatus = "instance_status"
+)
+
 const (
 	ChallengeTypeSliderPuzzleReg = "slider-puzzle"
 	ChallengeTypeDragDropReg     = "drag-drop"

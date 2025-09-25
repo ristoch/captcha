@@ -13,11 +13,39 @@ import (
 	"captcha-service/internal/config"
 	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/infrastructure/cache"
+	"captcha-service/internal/infrastructure/persistence"
 	"captcha-service/internal/infrastructure/repository"
+	"captcha-service/internal/service"
 	httpTransport "captcha-service/internal/transport/http"
 	wsTransport "captcha-service/internal/transport/websocket"
 	"captcha-service/internal/usecase"
 )
+
+// convertEntityConfig converts config.EntityConfig to entity.Config
+func convertEntityConfig(cfg *config.EntityConfig) *entity.Config {
+	return &entity.Config{
+		MaxAttempts:          cfg.MaxAttempts,
+		BlockDurationMin:     cfg.BlockDurationMin,
+		ComplexityLow:        cfg.ComplexityLow,
+		ComplexityMedium:     cfg.ComplexityMedium,
+		ComplexityHigh:       cfg.ComplexityHigh,
+		PuzzleSizeLow:        cfg.PuzzleSizeLow,
+		PuzzleSizeMedium:     cfg.PuzzleSizeMedium,
+		PuzzleSizeHigh:       cfg.PuzzleSizeHigh,
+		ToleranceLow:         cfg.ToleranceLow,
+		ToleranceMedium:      cfg.ToleranceMedium,
+		ToleranceHigh:        cfg.ToleranceHigh,
+		ExpirationTimeLow:    cfg.ExpirationTimeLow,
+		ExpirationTimeMedium: cfg.ExpirationTimeMedium,
+		ExpirationTimeHigh:   cfg.ExpirationTimeHigh,
+		MinTimeMs:            cfg.MinTimeMs,
+		MaxTimeMs:            cfg.MaxTimeMs,
+		MaxTimeoutAttempts:   cfg.MaxTimeoutAttempts,
+		MinOverlapPct:        cfg.MinOverlapPct,
+		CleanupInterval:      cfg.CleanupInterval,
+		StaleThreshold:       cfg.StaleThreshold,
+	}
+}
 
 func main() {
 	cfg, err := config.LoadDemoConfig()
@@ -26,34 +54,39 @@ func main() {
 	}
 
 	sessionRepo := repository.NewInMemorySessionRepository()
-	_ = cache.NewSessionCache(5000) // 5k max sessions (for future use)
-	entityConfig := &entity.DemoConfig{
+	_ = cache.NewSessionCache(cfg.MaxSessions)
+	demoConfig := &entity.DemoConfig{
 		MaxAttempts:   cfg.MaxAttempts,
 		BlockDuration: cfg.BlockDuration,
 	}
-	demoUsecase := usecase.NewDemoUsecase(sessionRepo, entityConfig)
+	demoUsecase := usecase.NewDemoUsecase(sessionRepo, demoConfig)
+
+	// Load entity config from environment variables
+	entityConfigFromEnv, err := config.LoadConfigFromEnv[config.EntityConfig]()
+	if err != nil {
+		log.Fatalf("Failed to load entity config: %v", err)
+	}
+	entityConfig := convertEntityConfig(entityConfigFromEnv)
+
+	// Create real challenge repository
+	challengeRepo := persistence.NewMemoryOptimizedRepository(cfg.MaxChallenges)
+
+	// Create generator registry and register slider puzzle generator
+	registry := service.NewGeneratorRegistry()
+	sliderGenerator := service.NewSliderPuzzleGenerator(entityConfig, challengeRepo, nil)
+	registry.Register(entity.ChallengeTypeSliderPuzzle, sliderGenerator)
+
+	// Create captcha service
+	captchaService := service.NewCaptchaService(challengeRepo, registry, nil, entityConfig)
 
 	tmpl := template.New("demo")
 
-	demoHandler := httpTransport.NewDemoHandler(demoUsecase, tmpl)
-	wsHandler := wsTransport.NewDemoWebSocketHandler(entityConfig, sessionRepo)
+	demoHandler := httpTransport.NewDemoHandler(demoUsecase, captchaService, tmpl, cfg)
+	wsHandler := wsTransport.NewDemoWebSocketHandler(demoConfig, sessionRepo)
 
-	mux := http.NewServeMux()
-
-	mux.Handle("/backgrounds/", http.StripPrefix("/backgrounds/", http.FileServer(http.Dir("./backgrounds/"))))
-	mux.Handle("/templates/", http.StripPrefix("/templates/", http.FileServer(http.Dir("./templates/"))))
-
-	mux.HandleFunc("/ws", wsHandler.HandleWebSocket)
-
-	mux.HandleFunc("/health", demoHandler.HandleHealth)
-	mux.HandleFunc("/demo", demoHandler.HandleDemo)
-	mux.HandleFunc("/performance", func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Performance test not implemented", http.StatusNotImplemented)
-	})
-
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/demo", http.StatusFound)
-	})
+	// Setup HTTP routes
+	router := httpTransport.NewRouter(demoHandler, wsHandler)
+	mux := router.SetupRoutes()
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -66,13 +99,13 @@ func main() {
 		<-sigChan
 
 		log.Println("Shutting down demo server...")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.ShutdownTimeoutSeconds)*time.Second)
 		defer cancel()
 		server.Shutdown(ctx)
 	}()
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
+		ticker := time.NewTicker(time.Duration(cfg.CleanupIntervalHours) * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
 			sessionRepo.CleanupExpired()

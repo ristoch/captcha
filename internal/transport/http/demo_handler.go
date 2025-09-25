@@ -1,33 +1,47 @@
 package http
 
 import (
+	"captcha-service/internal/config"
+	"captcha-service/internal/domain/entity"
+	"captcha-service/internal/service"
 	"captcha-service/internal/usecase"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"time"
 )
 
 type DemoHandler struct {
-	usecase *usecase.DemoUsecase
-	tmpl    *template.Template
+	usecase        *usecase.DemoUsecase
+	captchaService *service.CaptchaService
+	tmpl           *template.Template
+	config         *config.DemoConfig
 }
 
-func NewDemoHandler(usecase *usecase.DemoUsecase, tmpl *template.Template) *DemoHandler {
+func NewDemoHandler(usecase *usecase.DemoUsecase, captchaService *service.CaptchaService, tmpl *template.Template, config *config.DemoConfig) *DemoHandler {
 	return &DemoHandler{
-		usecase: usecase,
-		tmpl:    tmpl,
+		usecase:        usecase,
+		captchaService: captchaService,
+		tmpl:           tmpl,
+		config:         config,
 	}
 }
 
 func (h *DemoHandler) HandleDemo(w http.ResponseWriter, r *http.Request) {
 	complexityStr := r.URL.Query().Get("complexity")
-	complexity := 50
+	complexity := int(h.config.DefaultComplexity)
 	if c, err := strconv.Atoi(complexityStr); err == nil {
-		complexity = c
+		// Validate complexity range (0-100)
+		if c >= 0 && c <= 100 {
+			complexity = c
+		} else {
+			log.Printf("Invalid complexity %d, using default %d", c, complexity)
+		}
 	}
 
 	userID := "demo_user"
@@ -56,15 +70,51 @@ func (h *DemoHandler) HandleDemo(w http.ResponseWriter, r *http.Request) {
 
 	h.setSessionCookie(w, session.SessionID)
 
-	challenge, err := h.createMockChallenge(userID, complexity)
+	// Create a real challenge using the captcha service
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	challenge, err := h.captchaService.CreateChallenge(ctx, entity.ChallengeTypeSliderPuzzle, int32(complexity), userID)
 	if err != nil {
 		log.Printf("Error creating challenge: %v", err)
+		http.Error(w, "Failed to create challenge", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate HTML for the captcha iframe using real challenge data
+	captchaHTML := h.createRealChallengeHTML(challenge, userID)
+
+	// Load and execute the demo template
+	tmpl, err := template.ParseFiles("./templates/demo.html")
+	if err != nil {
+		log.Printf("Error loading demo template: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
+	// Create template data
+	data := struct {
+		ChallengeID string
+		Complexity  int
+		HTMLSize    int
+		UserID      string
+		HTML        string
+		MaxAttempts int32
+	}{
+		ChallengeID: challenge.ID,
+		Complexity:  complexity,
+		HTMLSize:    len(captchaHTML),
+		UserID:      userID,
+		HTML:        captchaHTML,
+		MaxAttempts: challenge.MaxAttempts,
+	}
+
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(challenge))
+	if err := tmpl.Execute(w, data); err != nil {
+		log.Printf("Error executing template: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (h *DemoHandler) HandleHealth(w http.ResponseWriter, r *http.Request) {
@@ -93,11 +143,19 @@ func (h *DemoHandler) setSessionCookie(w http.ResponseWriter, sessionID string) 
 	http.SetCookie(w, cookie)
 }
 
-func (h *DemoHandler) createMockChallenge(userID string, complexity int) (string, error) {
-	challengeID := fmt.Sprintf("mock_challenge_%d", time.Now().UnixNano())
-	targetX := 200
+func (h *DemoHandler) createRealChallengeHTML(challenge *entity.Challenge, userID string) string {
+	// Generate random background image and puzzle shape
+	rand.Seed(time.Now().UnixNano())
+	backgroundImage := entity.BackgroundImages[rand.Intn(len(entity.BackgroundImages))]
+	puzzleShape := entity.PuzzleShapes[rand.Intn(len(entity.PuzzleShapes))]
 
-	html := fmt.Sprintf(`
+	// Get target position from challenge data
+	targetX := 200 // Default value
+	if sliderData, ok := challenge.Data.(entity.SliderPuzzleData); ok {
+		targetX = sliderData.ChallengeData.TargetX
+	}
+
+	return fmt.Sprintf(`
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -152,12 +210,12 @@ func (h *DemoHandler) createMockChallenge(userID string, complexity int) (string
       puzzle_height: 60,
       target_x: %d,
       tolerance: 15,
-      background_image: "http://localhost:8081/backgrounds/background1.png",
-      puzzle_shape: "square"
+      background_image: "http://localhost:8081/backgrounds/%s",
+      puzzle_shape: "%s"
     };
 
     let attempts = 0;
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = %d;
     let isBlocked = false;
 
     const cv = document.getElementById("cv");
@@ -396,9 +454,36 @@ func (h *DemoHandler) createMockChallenge(userID string, complexity int) (string
         }
       }, '*');
     }
+
+    // Listen for new challenge data from parent window
+    window.addEventListener('message', function(event) {
+      if (event.data.type === 'new_challenge_data') {
+        console.log('Received new challenge data:', event.data);
+        
+        // Update challenge data
+        if (event.data.background_image) {
+          challengeData.background_image = event.data.background_image;
+        }
+        if (event.data.puzzle_shape) {
+          challengeData.puzzle_shape = event.data.puzzle_shape;
+        }
+        if (event.data.target_x !== undefined) {
+          challengeData.target_x = event.data.target_x;
+        }
+        if (event.data.challenge_id) {
+          challengeData.challenge_id = event.data.challenge_id;
+        }
+        
+        // Reset UI
+        slider.value = 0;
+        drawAll(0);
+        setMsg("Новая капча загружена. Попробуйте снова.", "hint");
+        
+        // Reload background image
+        loadImage();
+      }
+    });
   </script>
 </body>
-</html>`, challengeID, userID, targetX)
-
-	return html, nil
+</html>`, challenge.ID, userID, targetX, backgroundImage, puzzleShape, challenge.MaxAttempts)
 }

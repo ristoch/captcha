@@ -6,6 +6,7 @@ import (
 	"log"
 
 	captchaProto "captcha-service/gen/proto/proto/captcha"
+	"captcha-service/internal/domain/entity"
 	"captcha-service/internal/service"
 
 	"google.golang.org/grpc/codes"
@@ -63,16 +64,16 @@ func (h *EventStreamHandler) handleFrontendEvent(stream captchaProto.CaptchaServ
 		return status.Errorf(codes.InvalidArgument, "invalid event data")
 	}
 
-	eventType, ok := eventData["eventType"].(string)
+	eventType, ok := eventData[entity.EventTypeFieldEventType].(string)
 	if !ok {
 		log.Printf("Missing eventType in event data")
 		return status.Errorf(codes.InvalidArgument, "missing eventType")
 	}
 
 	switch eventType {
-	case "slider_move":
+	case entity.EventTypeSliderMove:
 		return h.handleSliderMove(stream, event, eventData)
-	case "validation":
+	case entity.EventTypeValidation:
 		return h.handleValidation(stream, event, eventData)
 	default:
 		log.Printf("Unknown frontend event type: %s", eventType)
@@ -87,7 +88,7 @@ func (h *EventStreamHandler) handleSliderMove(stream captchaProto.CaptchaService
 		Event: &captchaProto.ServerEvent_ClientData{
 			ClientData: &captchaProto.ServerEvent_SendClientData{
 				ChallengeId: event.ChallengeId,
-				Data:        []byte(`{"type":"feedback","message":"slider_moved"}`),
+				Data:        []byte(`{"type":"feedback","message":"` + entity.EventTypeSliderMovedStr + `"}`),
 			},
 		},
 	}
@@ -123,7 +124,7 @@ func (h *EventStreamHandler) handleValidation(stream captchaProto.CaptchaService
 	clientData := map[string]interface{}{
 		"valid":      valid,
 		"confidence": confidence,
-		"message":    "validation_complete",
+		"message":    entity.EventTypeValidationComplete,
 	}
 
 	clientDataBytes, _ := json.Marshal(clientData)
@@ -143,5 +144,95 @@ func (h *EventStreamHandler) handleValidation(stream captchaProto.CaptchaService
 func (h *EventStreamHandler) handleBalancerEvent(stream captchaProto.CaptchaService_MakeEventStreamServer, event *captchaProto.ClientEvent) error {
 	log.Printf("Balancer event for challenge %s: %+v", event.ChallengeId, event.Data)
 
-	return nil
+	// Парсим данные balancer события
+	var balancerData map[string]interface{}
+	if err := json.Unmarshal(event.Data, &balancerData); err != nil {
+		log.Printf("Error unmarshaling balancer event data: %v", err)
+		return status.Errorf(codes.InvalidArgument, "invalid balancer event data")
+	}
+
+	// Определяем тип balancer собычытиячыччы
+	eventType, ok := balancerData[entity.FieldType].(string)
+	if !ok {
+		log.Printf("Missing event type in balancer event data")
+		return status.Errorf(codes.InvalidArgument, "missing event type")
+	}
+
+	switch eventType {
+	case entity.BalancerEventTypeUserBlocked:
+		return h.handleUserBlockedEvent(stream, event, balancerData)
+	case entity.BalancerEventTypeUserUnblocked:
+		return h.handleUserUnblockedEvent(stream, event, balancerData)
+	case entity.BalancerEventTypeInstanceStatus:
+		return h.handleInstanceStatusEvent(stream, event, balancerData)
+	default:
+		log.Printf("Unknown balancer event type: %s", eventType)
+		return nil
+	}
+}
+
+func (h *EventStreamHandler) handleUserBlockedEvent(stream captchaProto.CaptchaService_MakeEventStreamServer, event *captchaProto.ClientEvent, data map[string]interface{}) error {
+	userID, ok := data[entity.FieldUserID].(string)
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "missing user_id in user_blocked event")
+	}
+
+	reason, _ := data[entity.FieldReason].(string)
+	blockedUntil, _ := data[entity.FieldBlockedUntil].(float64)
+
+	log.Printf("User %s blocked: %s (until: %v)", userID, reason, blockedUntil)
+
+	response := &captchaProto.ServerEvent{
+		Event: &captchaProto.ServerEvent_ClientData{
+			ClientData: &captchaProto.ServerEvent_SendClientData{
+				ChallengeId: event.ChallengeId,
+				Data:        []byte(`{"` + entity.FieldType + `":"user_blocked","` + entity.FieldUserID + `":"` + userID + `","` + entity.FieldReason + `":"` + reason + `"}`),
+			},
+		},
+	}
+
+	return stream.Send(response)
+}
+
+func (h *EventStreamHandler) handleUserUnblockedEvent(stream captchaProto.CaptchaService_MakeEventStreamServer, event *captchaProto.ClientEvent, data map[string]interface{}) error {
+	userID, ok := data[entity.FieldUserID].(string)
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "missing user_id in user_unblocked event")
+	}
+
+	log.Printf("User %s unblocked", userID)
+
+	response := &captchaProto.ServerEvent{
+		Event: &captchaProto.ServerEvent_ClientData{
+			ClientData: &captchaProto.ServerEvent_SendClientData{
+				ChallengeId: event.ChallengeId,
+				Data:        []byte(`{"` + entity.FieldType + `":"user_unblocked","` + entity.FieldUserID + `":"` + userID + `"}`),
+			},
+		},
+	}
+
+	return stream.Send(response)
+}
+
+func (h *EventStreamHandler) handleInstanceStatusEvent(stream captchaProto.CaptchaService_MakeEventStreamServer, event *captchaProto.ClientEvent, data map[string]interface{}) error {
+	instanceID, ok := data[entity.FieldInstanceID].(string)
+	if !ok {
+		return status.Errorf(codes.InvalidArgument, "missing instance_id in instance_status event")
+	}
+
+	status, _ := data[entity.FieldStatus].(string)
+	challengeType, _ := data[entity.FieldChallengeType].(string)
+
+	log.Printf("Instance %s status changed: %s (type: %s)", instanceID, status, challengeType)
+
+	response := &captchaProto.ServerEvent{
+		Event: &captchaProto.ServerEvent_ClientData{
+			ClientData: &captchaProto.ServerEvent_SendClientData{
+				ChallengeId: event.ChallengeId,
+				Data:        []byte(`{"` + entity.FieldType + `":"instance_status","` + entity.FieldInstanceID + `":"` + instanceID + `","` + entity.FieldStatus + `":"` + status + `","` + entity.FieldChallengeType + `":"` + challengeType + `"}`),
+			},
+		},
+	}
+
+	return stream.Send(response)
 }

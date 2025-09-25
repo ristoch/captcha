@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -30,25 +31,15 @@ const (
 	MessageTypeValidationResponse = "validation_response"
 	MessageTypeError              = "error"
 	MessageTypeUserBlocked        = "user_blocked"
+	MessageTypeCaptchaEvent       = "captcha_event"
 )
 
 type DemoWebSocketHandler struct {
-	upgrader     websocket.Upgrader
-	usecase      *usecase.DemoUsecase
-	sessionRepo  *repository.InMemorySessionRepository
-	config       *entity.DemoConfig
-	userSessions map[string]*UserSession
-	connections  map[string]*websocket.Conn
-}
-
-type UserSession struct {
-	UserID       string    `json:"user_id"`
-	SessionID    string    `json:"session_id"`
-	CreatedAt    time.Time `json:"created_at"`
-	BlockedUntil time.Time `json:"blocked_until"`
-	Attempts     int32     `json:"attempts"`
-	MaxAttempts  int32     `json:"max_attempts"`
-	IsBlocked    bool      `json:"is_blocked"`
+	upgrader    websocket.Upgrader
+	usecase     *usecase.DemoUsecase
+	sessionRepo *repository.InMemorySessionRepository
+	config      *entity.DemoConfig
+	connections map[string]*websocket.Conn
 }
 
 type WebSocketMessage struct {
@@ -81,27 +72,45 @@ func NewDemoWebSocketHandler(demoConfig *entity.DemoConfig, sessionRepo *reposit
 				return true // Allow all origins for demo purposes
 			},
 		},
-		usecase:      usecase,
-		sessionRepo:  sessionRepo,
-		config:       demoConfig,
-		userSessions: make(map[string]*UserSession),
-		connections:  make(map[string]*websocket.Conn),
+		usecase:     usecase,
+		sessionRepo: sessionRepo,
+		config:      demoConfig,
+		connections: make(map[string]*websocket.Conn),
 	}
 }
 
 func (h *DemoWebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	log.Printf("WebSocket connection attempt from %s", r.RemoteAddr)
+
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("WebSocket upgrade error:", err)
+		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}
 	defer conn.Close()
 
 	sessionID := h.getOrCreateSession(w, r)
 	userID := h.getUserIDFromSession(sessionID)
-	h.connections[userID] = conn // Store connection for user
+	h.connections[userID] = conn
 
-	log.Printf("WebSocket client connected for user: %s", userID)
+	log.Printf("WebSocket client connected for user: %s (session: %s)", userID, sessionID)
+
+	log.Printf("Checking if user %s is blocked...", userID)
+	blocked, err := h.usecase.IsUserBlocked(userID)
+	if err != nil {
+		log.Printf("Error checking user block status: %v", err)
+		h.sendErrorResponse(conn, userID, sessionID, "", "Internal error")
+		return
+	}
+
+	log.Printf("User %s blocked status: %v", userID, blocked)
+	if blocked {
+		log.Printf("User %s is blocked, sending blocked response", userID)
+		h.sendBlockedResponse(conn, userID, sessionID, "", "User is blocked due to too many failed attempts")
+		return
+	}
+
+	h.sendConnectionMessage(conn, userID, sessionID)
 
 	go func() {
 		conn.SetReadLimit(maxMessageSize)
@@ -123,7 +132,7 @@ func (h *DemoWebSocketHandler) HandleWebSocket(w http.ResponseWriter, r *http.Re
 			}
 		}
 		log.Printf("WebSocket client disconnected for user: %s", userID)
-		delete(h.connections, userID) // Remove connection on disconnect
+		delete(h.connections, userID)
 	}()
 
 	ticker := time.NewTicker(pingPeriod)
@@ -185,6 +194,8 @@ func (h *DemoWebSocketHandler) processMessage(conn *websocket.Conn, msg WebSocke
 		h.handleChallengeRequest(conn, msg)
 	case MessageTypeValidateRequest:
 		h.handleValidateRequest(conn, msg, binaryData)
+	case MessageTypeCaptchaEvent:
+		h.handleCaptchaEvent(conn, msg)
 	default:
 		h.sendErrorResponse(conn, msg.UserID, msg.SessionID, msg.ChallengeID, fmt.Sprintf("Unknown message type: %s", msg.Type))
 	}
@@ -194,16 +205,31 @@ func (h *DemoWebSocketHandler) handleChallengeRequest(conn *websocket.Conn, msg 
 	userID := msg.UserID
 	sessionID := msg.SessionID
 
-	if h.isUserBlocked(userID) {
+	blocked, err := h.usecase.IsUserBlocked(userID)
+	if err != nil {
+		log.Printf("Error checking user block status: %v", err)
+		h.sendErrorResponse(conn, userID, sessionID, "", "Internal error")
+		return
+	}
+
+	if blocked {
 		h.sendBlockedResponse(conn, userID, sessionID, "", "User is blocked due to too many failed attempts")
 		return
 	}
 
-	challenge := &entity.Challenge{
-		ID:         fmt.Sprintf("challenge_%d", time.Now().UnixNano()),
-		Type:       "slider_puzzle",
-		Complexity: 50,
-		HTML:       h.generateSliderPuzzleHTML(),
+	complexity := int32(50)
+	if msg.Data != nil {
+		if comp, ok := msg.Data["complexity"].(float64); ok {
+			complexity = int32(comp)
+		}
+	}
+
+	// Create challenge using DemoUsecase
+	challenge, err := h.usecase.CreateChallenge(userID, "slider-puzzle", complexity)
+	if err != nil {
+		log.Printf("Error creating challenge: %v", err)
+		h.sendErrorResponse(conn, userID, sessionID, "", "Failed to create challenge")
+		return
 	}
 
 	response := WebSocketMessage{
@@ -227,12 +253,19 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 	sessionID := msg.SessionID
 	challengeID := msg.ChallengeID
 
-	if h.isUserBlocked(userID) {
+	blocked, err := h.usecase.IsUserBlocked(userID)
+	if err != nil {
+		log.Printf("Error checking user block status: %v", err)
+		h.sendErrorResponse(conn, userID, sessionID, challengeID, "Internal error")
+		return
+	}
+
+	if blocked {
 		h.sendBlockedResponse(conn, userID, sessionID, challengeID, "User is blocked due to too many failed attempts")
 		return
 	}
 
-	var answer interface{}
+	var answer map[string]interface{}
 	if binaryData != nil && len(binaryData) > 0 {
 		if len(binaryData) >= 4 {
 			packed := binary.LittleEndian.Uint32(binaryData)
@@ -242,7 +275,9 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 			}
 		}
 	} else if msg.Data != nil {
-		answer = msg.Data["answer"]
+		if ans, ok := msg.Data["answer"].(map[string]interface{}); ok {
+			answer = ans
+		}
 	}
 
 	if answer == nil {
@@ -250,26 +285,38 @@ func (h *DemoWebSocketHandler) handleValidateRequest(conn *websocket.Conn, msg W
 		return
 	}
 
-	valid := h.mockValidateAnswer(answer)
-	confidence := int32(85)
+	// Use DemoUsecase for validation
+	valid, confidence, err := h.usecase.ValidateChallenge(userID, challengeID, answer)
+	if err != nil {
+		log.Printf("Error validating challenge: %v", err)
+		h.sendErrorResponse(conn, userID, sessionID, challengeID, "Validation error")
+		return
+	}
 
 	if valid {
-		h.resetUserAttempts(userID)
 		h.sendValidationResponse(conn, userID, sessionID, challengeID, true, confidence, false, "")
 		log.Printf("Challenge %s validated successfully for user %s", challengeID, userID)
 	} else {
-		shouldBlock := h.incrementUserAttempts(userID)
+		// Check if user should be blocked after this failed attempt
+		shouldBlock, err := h.usecase.ShouldBlockUser(userID)
+		if err != nil {
+			log.Printf("Error checking if user should be blocked: %v", err)
+		}
 
 		if shouldBlock {
-			h.blockUser(userID)
+			err := h.usecase.BlockUser(userID)
+			if err != nil {
+				log.Printf("Error blocking user: %v", err)
+			}
 			h.sendValidationResponse(conn, userID, sessionID, challengeID, false, confidence, true, "User blocked due to too many failed attempts")
 			log.Printf("User %s blocked after failed validation", userID)
 		} else {
-			newChallenge := &entity.Challenge{
-				ID:         fmt.Sprintf("challenge_%d", time.Now().UnixNano()),
-				Type:       "slider_puzzle",
-				Complexity: 50,
-				HTML:       h.generateSliderPuzzleHTML(),
+			// Create new challenge for failed attempt
+			newChallenge, err := h.usecase.CreateChallenge(userID, "slider-puzzle", 50)
+			if err != nil {
+				log.Printf("Error creating new challenge: %v", err)
+				h.sendErrorResponse(conn, userID, sessionID, challengeID, "Failed to create new challenge")
+				return
 			}
 
 			response := WebSocketMessage{
@@ -313,19 +360,12 @@ func (h *DemoWebSocketHandler) getOrCreateSession(w http.ResponseWriter, r *http
 }
 
 func (h *DemoWebSocketHandler) getUserIDFromSession(sessionID string) string {
-	return sessionID
+	// For demo purposes, use a fixed user ID to maintain blocking state
+	return "demo_user"
 }
 
 func (h *DemoWebSocketHandler) generateSessionID() string {
 	return fmt.Sprintf("session_%d", time.Now().UnixNano())
-}
-
-func (h *DemoWebSocketHandler) isUserBlocked(userID string) bool {
-	session, exists := h.userSessions[userID]
-	if !exists {
-		return false
-	}
-	return session.IsBlocked && time.Now().Before(session.BlockedUntil)
 }
 
 func (h *DemoWebSocketHandler) sendMessage(conn *websocket.Conn, msg WebSocketMessage) {
@@ -378,83 +418,110 @@ func (h *DemoWebSocketHandler) sendValidationResponse(conn *websocket.Conn, user
 	h.sendMessage(conn, response)
 }
 
-func (h *DemoWebSocketHandler) mockValidateAnswer(answer interface{}) bool {
-	return false
-}
-
-func (h *DemoWebSocketHandler) generateSliderPuzzleHTML() string {
-	return `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Slider Puzzle Captcha</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-        .puzzle-container { margin: 20px auto; width: 300px; }
-        .slider { width: 100%; margin: 10px 0; }
-        .message { margin: 10px 0; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h3>Complete the puzzle</h3>
-    <div class="puzzle-container">
-        <canvas id="puzzle" width="300" height="200" style="border: 1px solid #ccc;"></canvas>
-        <input type="range" class="slider" min="0" max="100" value="0" id="slider">
-        <div class="message" id="message">Move the slider to complete the puzzle</div>
-    </div>
-    <script>
-        const canvas = document.getElementById('puzzle');
-        const ctx = canvas.getContext('2d');
-        const slider = document.getElementById('slider');
-        const message = document.getElementById('message');
-        
-        ctx.fillStyle = '#f0f0f0';
-        ctx.fillRect(0, 0, 300, 200);
-        ctx.fillStyle = '#333';
-        ctx.fillRect(50, 50, 200, 100);
-        
-        slider.addEventListener('input', function() {
-            const value = this.value;
-            window.top.postMessage({
-                type: 'captcha:sendData',
-                eventType: 'slider_move',
-                data: { x: parseInt(value), y: 100 }
-            }, '*');
-        });
-    </script>
-</body>
-</html>`
-}
-
-func (h *DemoWebSocketHandler) resetUserAttempts(userID string) {
-	if session, exists := h.userSessions[userID]; exists {
-		session.Attempts = 0
-		session.IsBlocked = false
-		session.BlockedUntil = time.Time{}
+func (h *DemoWebSocketHandler) sendConnectionMessage(conn *websocket.Conn, userID, sessionID string) {
+	response := WebSocketMessage{
+		Type:      "connected",
+		UserID:    userID,
+		SessionID: sessionID,
+		Data: map[string]interface{}{
+			"user_id":    userID,
+			"session_id": sessionID,
+			"message":    "Connected to WebSocket",
+		},
 	}
+	h.sendMessage(conn, response)
+	log.Printf("Sent connection message for user: %s", userID)
 }
 
-func (h *DemoWebSocketHandler) incrementUserAttempts(userID string) bool {
-	session, exists := h.userSessions[userID]
-	if !exists {
-		session = &UserSession{
-			UserID:      userID,
-			SessionID:   h.generateSessionID(),
-			CreatedAt:   time.Now(),
-			Attempts:    0,
-			MaxAttempts: 3, // Demo limit
-			IsBlocked:   false,
+func (h *DemoWebSocketHandler) handleCaptchaEvent(conn *websocket.Conn, msg WebSocketMessage) {
+	userID := msg.UserID
+	sessionID := msg.SessionID
+
+	log.Printf("Received captcha event from user %s: %+v", userID, msg.Data)
+
+	eventType, ok := msg.Data["eventType"].(string)
+	if !ok {
+		log.Printf("Invalid event type in data: %+v", msg.Data)
+		h.sendErrorResponse(conn, userID, sessionID, msg.ChallengeID, "Invalid event type")
+		return
+	}
+
+	log.Printf("Processing captcha event type: %s", eventType)
+
+	switch eventType {
+	case "userBlocked":
+		err := h.usecase.BlockUser(userID)
+		if err != nil {
+			log.Printf("Error blocking user %s: %v", userID, err)
+		} else {
+			log.Printf("User %s blocked due to captcha failures", userID)
 		}
-		h.userSessions[userID] = session
+
+		h.sendBlockedResponse(conn, userID, sessionID, msg.ChallengeID, "User blocked due to too many failed attempts")
+
+	case "newChallenge":
+		log.Printf("User %s requested new challenge", userID)
+
+		// Generate new random challenge data
+		rand.Seed(time.Now().UnixNano())
+		backgroundImage := entity.BackgroundImages[rand.Intn(len(entity.BackgroundImages))]
+		puzzleShape := entity.PuzzleShapes[rand.Intn(len(entity.PuzzleShapes))]
+		newTargetX := rand.Intn(340) + 30 // Random position between 30 and 370
+
+		// Send new challenge data to iframe
+		response := WebSocketMessage{
+			Type:      "new_challenge_data",
+			UserID:    userID,
+			SessionID: sessionID,
+			Data: map[string]interface{}{
+				"background_image": fmt.Sprintf("http://localhost:8081/backgrounds/%s", backgroundImage),
+				"puzzle_shape":     puzzleShape,
+				"target_x":         newTargetX,
+				"challenge_id":     fmt.Sprintf("mock_challenge_%d", time.Now().UnixNano()),
+			},
+		}
+		h.sendMessage(conn, response)
+		log.Printf("Sent new challenge data: background=%s, shape=%s, targetX=%d", backgroundImage, puzzleShape, newTargetX)
+
+	case "captchaFailed":
+		log.Printf("User %s failed captcha attempt", userID)
+
+		err := h.usecase.IncrementAttempts(userID)
+		if err != nil {
+			log.Printf("Error incrementing attempts for user %s: %v", userID, err)
+		} else {
+			log.Printf("Incremented attempts for user %s", userID)
+		}
+
+		shouldBlock, err := h.usecase.ShouldBlockUser(userID)
+		if err != nil {
+			log.Printf("Error checking if user should be blocked: %v", err)
+		} else {
+			log.Printf("Should block user %s: %v", userID, shouldBlock)
+			if shouldBlock {
+				err := h.usecase.BlockUser(userID)
+				if err != nil {
+					log.Printf("Error blocking user: %v", err)
+				} else {
+					log.Printf("User %s blocked after failed attempt", userID)
+					h.sendBlockedResponse(conn, userID, sessionID, msg.ChallengeID, "User blocked due to too many failed attempts")
+					return
+				}
+			}
+		}
 	}
 
-	session.Attempts++
-	return session.Attempts >= session.MaxAttempts
-}
-
-func (h *DemoWebSocketHandler) blockUser(userID string) {
-	if session, exists := h.userSessions[userID]; exists {
-		session.IsBlocked = true
-		session.BlockedUntil = time.Now().Add(5 * time.Minute) // Block for 5 minutes
+	// Acknowledge the event
+	response := WebSocketMessage{
+		Type:      "captcha_event_ack",
+		UserID:    userID,
+		SessionID: sessionID,
+		Data: map[string]interface{}{
+			"message": "Captcha event received",
+			"event":   msg.Data,
+		},
 	}
+
+	h.sendMessage(conn, response)
+	log.Printf("Sent captcha event acknowledgment for user: %s", userID)
 }

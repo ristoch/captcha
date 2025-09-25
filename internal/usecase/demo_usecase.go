@@ -38,16 +38,19 @@ func (u *DemoUsecase) CreateSession(userID string) (*entity.UserSession, error) 
 }
 
 func (u *DemoUsecase) GetOrCreateSession(userID string) (*entity.UserSession, error) {
-	session, err := u.sessionRepo.GetSession(userID)
+	session, err := u.sessionRepo.GetSessionByUserID(userID)
 	if err != nil {
+		fmt.Printf("GetOrCreateSession: creating new session for user %s\n", userID)
 		return u.CreateSession(userID)
 	}
 
 	if u.isSessionExpired(session) {
+		fmt.Printf("GetOrCreateSession: session expired for user %s, creating new one\n", userID)
 		u.sessionRepo.DeleteSession(session.SessionID)
 		return u.CreateSession(userID)
 	}
 
+	fmt.Printf("GetOrCreateSession: found existing session for user %s, attempts: %d\n", userID, session.Attempts)
 	session.LastSeen = time.Now()
 	u.sessionRepo.UpdateSession(session)
 	return session, nil
@@ -93,8 +96,11 @@ func (u *DemoUsecase) IncrementAttempts(userID string) error {
 		return err
 	}
 
+	oldAttempts := session.Attempts
 	session.Attempts++
 	session.LastSeen = time.Now()
+
+	fmt.Printf("IncrementAttempts: user %s attempts %d -> %d (max: %d)\n", userID, oldAttempts, session.Attempts, u.config.MaxAttempts)
 
 	return u.sessionRepo.UpdateSession(session)
 }
@@ -105,7 +111,10 @@ func (u *DemoUsecase) ShouldBlockUser(userID string) (bool, error) {
 		return false, err
 	}
 
-	return session.Attempts >= u.config.MaxAttempts, nil
+	shouldBlock := session.Attempts >= u.config.MaxAttempts
+	fmt.Printf("ShouldBlockUser: user %s attempts %d >= %d = %v\n", userID, session.Attempts, u.config.MaxAttempts, shouldBlock)
+
+	return shouldBlock, nil
 }
 
 func (u *DemoUsecase) isSessionExpired(session *entity.UserSession) bool {
